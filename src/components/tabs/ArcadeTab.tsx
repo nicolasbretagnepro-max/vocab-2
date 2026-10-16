@@ -11,6 +11,10 @@ import {
   Flame,
   ArrowLeft,
   RotateCcw,
+  AlertCircle,
+  CheckCircle2,
+  Star,
+  ChevronRight,
 } from 'lucide-react';
 import {
   ArcadeHighScores,
@@ -27,6 +31,8 @@ interface ArcadeTabProps {
   highScores: ArcadeHighScores;
   onUpdateHighScore: (game: keyof ArcadeHighScores, score: number) => void;
   onAwardXp: (xp: number) => void;
+  onSelectWord: (word: WordEntry) => void;
+  onToggleFavorite: (wordKey: string) => void;
 }
 
 type ArcadeGameType =
@@ -42,6 +48,8 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
   highScores,
   onUpdateHighScore,
   onAwardXp,
+  onSelectWord,
+  onToggleFavorite,
 }) => {
   const [onlySeenWords, setOnlySeenWords] = useState(false);
   const [activeGame, setActiveGame] = useState<ArcadeGameType>(null);
@@ -64,14 +72,24 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [timeLeft, setTimeLeft] = useState(120);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [bonusToast, setBonusToast] = useState<string | null>(null);
   const [gameOver, setGameOver] = useState(false);
+  const [sessionMistakes, setSessionMistakes] = useState<WordEntry[]>([]);
 
-  // Timer for 2 Minutes Chrono & Tapis Express
+  const recordMistake = (wordEntry: WordEntry) => {
+    setSessionMistakes((prev) => {
+      if (prev.some((w) => w.word === wordEntry.word)) return prev;
+      return [...prev, wordEntry];
+    });
+  };
+
+  // Timer for 2 Minutes Chrono & Tapis Express (pauses when reading an error!)
   useEffect(() => {
     if (
       (activeGame !== 'chrono2min' && activeGame !== 'tapisExpress') ||
-      gameOver
+      gameOver ||
+      isTimerPaused
     ) {
       return;
     }
@@ -86,7 +104,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [activeGame, gameOver]);
+  }, [activeGame, gameOver, isTimerPaused]);
 
   // Handle Game Over High Score & XP
   useEffect(() => {
@@ -114,7 +132,9 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
     setScore(0);
     setCombo(0);
     setGameOver(false);
+    setIsTimerPaused(false);
     setBonusToast(null);
+    setSessionMistakes([]);
     if (game === 'chrono2min') setTimeLeft(120);
     if (game === 'tapisExpress') setTimeLeft(90);
     setActiveGame(game);
@@ -125,6 +145,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
 
   // 1. 2 Minutes Chrono Handler
   const handleChronoAnswer = (isCorrect: boolean) => {
+    setIsTimerPaused(false);
     if (isCorrect) {
       const nextCombo = combo + 1;
       const multiplier = Math.min(4, 1 + Math.floor(nextCombo / 3));
@@ -139,6 +160,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
       }
     } else {
       setCombo(0);
+      if (currentWord) recordMistake(currentWord);
     }
     setCurrentIndex((i) => i + 1);
   };
@@ -147,6 +169,8 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
   const handleMotJusteAnswer = (isCorrect: boolean) => {
     if (isCorrect) {
       setScore((s) => s + 20);
+    } else if (currentWord) {
+      recordMistake(currentWord);
     }
     if (currentIndex + 1 >= 10) {
       setGameOver(true);
@@ -171,6 +195,8 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
     if (isCorrect) {
       const pts = Math.max(10, 40 - hintsUsed * 10);
       setScore((s) => s + pts);
+    } else if (currentWord) {
+      recordMistake(currentWord);
     }
     if (currentIndex + 1 >= 5) {
       setGameOver(true);
@@ -186,9 +212,10 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="py-8 space-y-5 pb-nav-safe"
+          className="py-4 space-y-5 pb-nav-safe"
         >
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-7 shadow-ios-lg border border-slate-200/80 dark:border-white/10 text-center space-y-5">
+          {/* Score Summary Card */}
+          <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 shadow-ios-lg border border-slate-200/80 dark:border-white/10 text-center space-y-5">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center text-amber-500">
               <Trophy className="w-8 h-8" />
             </div>
@@ -197,16 +224,16 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
               <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                 Arcade Terminée
               </span>
-              <h2 className="font-serif text-3xl font-bold text-slate-900 dark:text-white mt-1">
+              <h2 className="font-sans text-3xl font-bold text-slate-900 dark:text-white mt-1">
                 Score : {score} pts
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Record personnel :{' '}
                 {Math.max(score, highScores[activeGame] || 0)} pts
               </p>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => setActiveGame(null)}
@@ -225,6 +252,92 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
               </button>
             </div>
           </div>
+
+          {/* End-of-Game Mistakes Recap */}
+          <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-ios border border-slate-200/80 dark:border-white/10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {sessionMistakes.length === 0 ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-rose-500" />
+                )}
+                <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
+                  {sessionMistakes.length === 0
+                    ? 'Sans faute ! Aucune erreur'
+                    : `Récapitulatif des erreurs (${sessionMistakes.length})`}
+                </h3>
+              </div>
+              {sessionMistakes.length > 0 && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Touchez un mot pour sa fiche
+                </span>
+              )}
+            </div>
+
+            {sessionMistakes.length === 0 ? (
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Vous avez répondu correctement à toutes les questions de cette partie.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {sessionMistakes.map((missed) => {
+                  const isFav = progressMap[missed.word]?.favorite;
+                  return (
+                    <div
+                      key={missed.word}
+                      onClick={() => onSelectWord(missed)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ')
+                          onSelectWord(missed);
+                      }}
+                      className="p-4 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E]/80 border border-slate-200/70 dark:border-white/10 hover:border-indigo-400 transition-all cursor-pointer space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-serif text-xl font-bold text-slate-900 dark:text-white">
+                            {missed.word}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200/70 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                            {missed.nature}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleFavorite(missed.word);
+                            }}
+                            aria-label="Favori"
+                            className="p-1.5 rounded-full hover:bg-slate-200/60 dark:hover:bg-white/10"
+                          >
+                            <Star
+                              className={`w-4 h-4 ${
+                                isFav
+                                  ? 'fill-amber-400 text-amber-400'
+                                  : 'text-slate-400'
+                              }`}
+                            />
+                          </button>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </div>
+                      </div>
+
+                      <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                        {missed.definition_courte}
+                      </p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {missed.definition}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </motion.div>
       );
     }
@@ -236,23 +349,25 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
           <button
             type="button"
             onClick={() => setActiveGame(null)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+            className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Quitter</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {(activeGame === 'chrono2min' || activeGame === 'tapisExpress') && (
               <div
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold ${
-                  timeLeft <= 15
+                className={`flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold ${
+                  isTimerPaused
+                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                    : timeLeft <= 15
                     ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 animate-pulse'
                     : 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200'
                 }`}
               >
                 <Timer className="w-3.5 h-3.5" />
-                <span>{timeLeft}s</span>
+                <span>{isTimerPaused ? `${timeLeft}s (Pause)` : `${timeLeft}s`}</span>
               </div>
             )}
 
@@ -287,6 +402,11 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
             allWords={allWords}
             mode={currentIndex % 2 === 0 ? 'word-to-def' : 'def-to-word'}
             badgeLabel={`2 Minutes Chrono • Question #${currentIndex + 1}`}
+            pauseOnError={true}
+            onErrorDetected={() => {
+              setIsTimerPaused(true);
+              recordMistake(currentWord);
+            }}
             onAnswer={handleChronoAnswer}
           />
         )}
@@ -298,6 +418,8 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
             allWords={allWords}
             mode={currentIndex % 2 === 0 ? 'cloze-1' : 'cloze-2'}
             badgeLabel={`Le Mot Juste • ${currentIndex + 1} / 10`}
+            pauseOnError={true}
+            onErrorDetected={() => recordMistake(currentWord)}
             onAnswer={handleMotJusteAnswer}
           />
         )}
@@ -307,6 +429,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
             key={`tapis-${currentIndex}`}
             words={gameQueue.slice(currentIndex * 4, currentIndex * 4 + 4)}
             titleLabel={`Tapis Express • Manche ${currentIndex + 1} / 3`}
+            onMistakeWord={(w) => recordMistake(w)}
             onComplete={handleTapisRoundComplete}
           />
         )}
@@ -317,6 +440,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
             word={currentWord}
             allowHints={true}
             useSecondExample={currentIndex % 2 === 1}
+            pauseOnError={true}
             badgeLabel={`L'Épreuve du Scribe • ${currentIndex + 1} / 5`}
             onAnswer={handleScribeAnswer}
           />
@@ -334,10 +458,10 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
           <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
             Entraînement intensif
           </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Arcade
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
             Mini-jeux rapides pour stimuler votre vitesse de rappel.
           </p>
         </div>
@@ -347,29 +471,29 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
           <button
             type="button"
             onClick={() => setOnlySeenWords(true)}
-            className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all ${
+            className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
               onlySeenWords
                 ? 'bg-white dark:bg-[#1C1C1E] text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 dark:text-slate-400'
+                : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            Uniquement mes mots vus ({seenWords.length})
+            Mes mots vus ({seenWords.length})
           </button>
           <button
             type="button"
             onClick={() => setOnlySeenWords(false)}
-            className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all ${
+            className={`py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
               !onlySeenWords
                 ? 'bg-white dark:bg-[#1C1C1E] text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 dark:text-slate-400'
+                : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            Tout le dictionnaire ({allWords.length} mots)
+            Tout le dictionnaire ({allWords.length})
           </button>
         </div>
 
         {onlySeenWords && seenWords.length < 4 && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center">
+          <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
             Vous avez moins de 4 mots vus : le dictionnaire complet est utilisé en complément.
           </p>
         )}
@@ -391,8 +515,8 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
               <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
                 ⚡ 2 Minutes Chrono
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-snug">
-                Sprint QCM de 120s avec multiplicateur de combo et +2s tous les 5 combos.
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
+                Sprint QCM de 120s avec multiplicateur de combo, pause lecture en cas d'erreur et récap final.
               </p>
               <div className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 pt-1">
                 <Trophy className="w-3.5 h-3.5" />
@@ -416,7 +540,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
               <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
                 🎯 Le Mot Juste
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-snug">
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
                 Série de 10 phrases à trous littéraires et journalistiques à compléter.
               </p>
               <div className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 pt-1">
@@ -441,7 +565,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
               <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
                 🧩 Tapis Express
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-snug">
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
                 3 manches d'associations de paires contre la montre.
               </p>
               <div className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 pt-1">
@@ -466,7 +590,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
               <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
                 ✍️ L'Épreuve du Scribe
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-snug">
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
                 5 mots à orthographier au clavier avec le système d'indices progressifs.
               </p>
               <div className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-400 pt-1">

@@ -17,7 +17,6 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
   word,
   onAnswer,
 }) => {
-  // Determine target word (use canonical word or exact hole if single word)
   const parsed = useMemo(
     () => parseCloze(word.example_1, word.example_cloze_1, word.word),
     [word]
@@ -66,7 +65,7 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
 
     setTimeout(() => {
       onAnswer(correct);
-    }, correct ? 650 : 450);
+    }, correct ? 650 : 750);
   };
 
   const clozeParts = (word.example_cloze_1 || '').split(/\[(?:…|\.{3}|\.)\]/);
@@ -86,18 +85,18 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
             <Puzzle className="w-3.5 h-3.5" />
             Constructeur de Syllabes • Niv. 3.1
           </span>
-          <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
             {word.nature}
           </span>
         </div>
 
         <div>
-          <p className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
+          <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-snug">
             « {word.definition_courte} »
           </p>
         </div>
 
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E]/80 border border-slate-200/60 dark:border-white/10 text-sm sm:text-base text-slate-700 dark:text-slate-200 leading-relaxed">
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E]/80 border border-slate-200/60 dark:border-white/10 text-base text-slate-800 dark:text-slate-100 leading-relaxed">
           «{' '}
           {clozeParts.map((part, idx) => (
             <React.Fragment key={idx}>
@@ -114,7 +113,7 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
 
         {/* Construction Dock */}
         <div
-          className={`min-h-[4rem] p-3 rounded-2xl border-2 border-dashed flex items-center justify-between gap-2 transition-colors ${
+          className={`min-h-[4.25rem] p-3.5 rounded-2xl border-2 border-dashed flex items-center justify-between gap-2 transition-colors ${
             submitted
               ? isCorrectState
                 ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-500/15'
@@ -122,9 +121,9 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
               : 'border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/30 dark:bg-indigo-950/20'
           }`}
         >
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             {selectedObjects.length === 0 ? (
-              <span className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 pl-1">
+              <span className="text-sm text-slate-500 dark:text-slate-400 pl-1">
                 Touchez {targetChunks.length} blocs ci-dessous pour former le mot…
               </span>
             ) : (
@@ -134,7 +133,7 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
                   key={`dock-${chunk.id}`}
                   type="button"
                   onClick={() => handleToggleChunk(chunk.id)}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white font-serif font-bold text-base shadow-sm"
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-sans font-bold text-base shadow-sm"
                 >
                   {chunk.text}
                 </motion.button>
@@ -167,7 +166,7 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
                 disabled={isUsed || submitted}
                 whileTap={!isUsed && !submitted ? { scale: 0.94 } : undefined}
                 onClick={() => handleToggleChunk(chunk.id)}
-                className={`px-4 py-3 rounded-2xl font-serif font-bold text-lg border-2 transition-all min-w-[3.75rem] ${
+                className={`px-4 py-3 rounded-2xl font-sans font-bold text-lg border-2 transition-all min-w-[3.75rem] ${
                   isUsed
                     ? 'bg-slate-100 dark:bg-white/5 border-slate-200/50 dark:border-white/5 text-slate-300 dark:text-slate-600 scale-95'
                     : 'bg-slate-50 dark:bg-[#2C2C2E] border-slate-200 dark:border-white/15 text-slate-900 dark:text-white hover:border-indigo-500 shadow-sm'

@@ -1,6 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, HelpCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  ArrowRight,
+  AlertCircle,
+} from 'lucide-react';
 import { WordEntry } from '../../types/vocab';
 import { selectSameNatureDistractors } from '../../services/srsEngine';
 
@@ -12,6 +18,8 @@ interface MultipleChoiceGameProps {
   mode: QcmMode;
   onAnswer: (isCorrect: boolean) => void;
   badgeLabel?: string;
+  pauseOnError?: boolean;
+  onErrorDetected?: () => void;
 }
 
 export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
@@ -20,9 +28,12 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
   mode,
   onAnswer,
   badgeLabel,
+  pauseOnError = false,
+  onErrorDetected,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [locked, setLocked] = useState(false);
+  const [waitingManualNext, setWaitingManualNext] = useState(false);
 
   const options = useMemo(() => {
     const distractors = selectSameNatureDistractors(word, allWords, 3);
@@ -30,7 +41,6 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
       { entry: word, isCorrect: true },
       ...distractors.map((d) => ({ entry: d, isCorrect: false })),
     ];
-    // Deterministic-free shuffle per question mount
     for (let i = combined.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [combined[i], combined[j]] = [combined[j], combined[i]];
@@ -44,22 +54,28 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     setLocked(true);
     const isCorrect = options[idx].isCorrect;
 
+    if (!isCorrect && pauseOnError) {
+      onErrorDetected?.();
+      setWaitingManualNext(true);
+      return;
+    }
+
     setTimeout(() => {
       onAnswer(isCorrect);
-    }, isCorrect ? 650 : 450);
+    }, isCorrect ? 650 : 750);
   };
 
   const renderPrompt = () => {
     if (mode === 'word-to-def') {
       return (
-        <div className="space-y-2 text-center py-2">
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+        <div className="space-y-2.5 text-center py-2">
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
             {word.nature}
           </span>
           <h2 className="font-serif text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white pt-1">
             {word.word}
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Quelle est la définition exacte de ce mot ?
           </p>
         </div>
@@ -69,13 +85,13 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     if (mode === 'def-to-word') {
       return (
         <div className="space-y-3 text-center py-2">
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
             {word.nature}
           </span>
-          <p className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white leading-snug px-2">
+          <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-snug px-1">
             « {word.definition_courte} »
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 px-2">
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed px-1">
             {word.definition}
           </p>
         </div>
@@ -90,17 +106,17 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     const parts = clozeSentence.split(/\[(?:…|\.{3}|\.)\]/);
 
     return (
-      <div className="space-y-3 py-2">
+      <div className="space-y-3.5 py-1">
         <div className="flex items-center justify-between">
-          <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
             {word.nature}
           </span>
-          <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-            Complétez la phrase
+          <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            Complétez la phrase à trou
           </span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E]/80 border border-slate-200/60 dark:border-white/10 text-base sm:text-lg leading-relaxed text-slate-800 dark:text-slate-100">
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E]/80 border border-slate-200/60 dark:border-white/10 text-base sm:text-lg leading-relaxed text-slate-900 dark:text-slate-100 font-normal">
           «{' '}
           {parts.map((part, idx) => (
             <React.Fragment key={idx}>
@@ -114,10 +130,6 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
           ))}{' '}
           »
         </div>
-
-        <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-          Indice de sens : <span className="font-medium text-slate-700 dark:text-slate-300">{word.definition_courte}</span>
-        </p>
       </div>
     );
   };
@@ -142,20 +154,20 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
         {renderPrompt()}
       </div>
 
-      {/* 4 Choice Buttons (Thumb-friendly bottom stack) */}
+      {/* 4 Choice Buttons (Clean Sans-Serif for instant reading) */}
       <div className="grid grid-cols-1 gap-2.5">
         {options.map((opt, idx) => {
           const isSelected = selectedIndex === idx;
           let styleClass =
-            'bg-white dark:bg-[#1C1C1E] border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 hover:border-indigo-400 dark:hover:border-indigo-500';
+            'bg-white dark:bg-[#1C1C1E] border-slate-200/80 dark:border-white/10 text-slate-900 dark:text-slate-100 hover:border-indigo-400 dark:hover:border-indigo-500';
 
           if (locked) {
             if (opt.isCorrect) {
               styleClass =
-                'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-500 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/30';
+                'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-500 text-emerald-950 dark:text-emerald-100 ring-2 ring-emerald-500/30';
             } else if (isSelected && !opt.isCorrect) {
               styleClass =
-                'bg-rose-50 dark:bg-rose-500/20 border-rose-500 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/30';
+                'bg-rose-50 dark:bg-rose-500/20 border-rose-500 text-rose-950 dark:text-rose-100 ring-2 ring-rose-500/30';
             } else {
               styleClass =
                 'bg-white/60 dark:bg-[#1C1C1E]/50 border-slate-200/40 dark:border-white/5 text-slate-400 dark:text-slate-500 opacity-65';
@@ -174,15 +186,23 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
               onClick={() => handleSelect(idx)}
               className={`w-full text-left p-4 rounded-2xl border-2 shadow-sm transition-all flex items-center justify-between gap-3 ${styleClass}`}
             >
-              <span
-                className={`${
-                  mode === 'word-to-def'
-                    ? 'text-sm sm:text-base font-medium'
-                    : 'font-serif text-lg sm:text-xl font-bold'
-                } leading-snug`}
-              >
-                {label}
-              </span>
+              <div className="space-y-0.5">
+                <span
+                  className={`font-sans block ${
+                    mode === 'word-to-def'
+                      ? 'text-base font-medium leading-snug'
+                      : 'text-base sm:text-lg font-bold tracking-tight'
+                  }`}
+                >
+                  {label}
+                </span>
+                {/* When paused on error, show the short definition under each word choice to clarify why */}
+                {waitingManualNext && mode !== 'word-to-def' && (
+                  <span className="block text-xs text-slate-500 dark:text-slate-400 font-normal">
+                    {opt.entry.definition_courte}
+                  </span>
+                )}
+              </div>
 
               {locked && opt.isCorrect && (
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -194,6 +214,45 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
           );
         })}
       </div>
+
+      {/* Inline Correction Banner + "Suivant" Button when paused on error (e.g. in 2 Minutes Chrono) */}
+      {waitingManualNext && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-ios-lg border-2 border-rose-400/80 dark:border-rose-500/60 space-y-3.5"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                Chrono en pause • Prenez le temps de lire
+              </div>
+              <p className="text-base font-bold text-slate-900 dark:text-white">
+                {word.word}{' '}
+                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                  ({word.nature})
+                </span>
+              </p>
+              <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                {word.definition_courte}
+              </p>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                {word.definition}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onAnswer(false)}
+            className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base shadow-md flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+          >
+            <span>Question suivante</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        </motion.div>
+      )}
     </motion.div>
   );
 };

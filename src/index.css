@@ -20,9 +20,13 @@ html.dark {
 
 html, body {
   min-height: 100dvh;
+  line-height: 1.5;
+  text-align: start;
+  overflow-wrap: break-word;
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 /* Modern Web Guidance: balanced headings and orphan-free paragraphs */
@@ -32,6 +36,7 @@ h1, h2, h3, h4, h5, h6 {
 
 p, blockquote, li, .pretty-text {
   text-wrap: pretty;
+  max-width: 75ch;
 }
 
 @layer utilities {
@@ -42,7 +47,7 @@ p, blockquote, li, .pretty-text {
     padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   }
   .pb-nav-safe {
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
   }
   .bottom-safe {
     bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));

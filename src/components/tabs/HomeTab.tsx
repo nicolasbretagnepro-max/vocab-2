@@ -161,7 +161,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
               L'Atelier du Mot
             </span>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+            <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
               Aujourd'hui
             </h1>
           </div>
@@ -173,7 +173,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <div className="text-sm font-bold text-orange-900 dark:text-orange-200 leading-none">
                 {stats.streak} {stats.streak > 1 ? 'jours' : 'jour'}
               </div>
-              <div className="text-[10px] font-medium text-orange-600 dark:text-orange-400">
+              <div className="text-xs font-medium text-orange-600 dark:text-orange-400 mt-0.5">
                 Série active
               </div>
             </div>
@@ -203,32 +203,32 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         {/* Global Mastery Summary Bar */}
         <div className="grid grid-cols-3 gap-2.5 pt-1">
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E] border border-slate-200/50 dark:border-white/5">
-            <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Mots étudiés
             </div>
             <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
               {seenWordsCount}{' '}
-              <span className="text-xs font-normal text-slate-400">
+              <span className="text-xs font-normal text-slate-500">
                 / {allWords.length}
               </span>
             </div>
           </div>
 
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E] border border-slate-200/50 dark:border-white/5">
-            <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Charge N1+N2
             </div>
             <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
               {wipCount}{' '}
-              <span className="text-xs font-normal text-slate-400">
+              <span className="text-xs font-normal text-slate-500">
                 / {WIP_LIMIT_LEVEL_1_2} max
               </span>
             </div>
           </div>
 
           <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-500/20">
-            <div className="text-[11px] font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
-              <Crown className="w-3 h-3" />
+            <div className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
+              <Crown className="w-3.5 h-3.5" />
               <span>Cartes d'Or</span>
             </div>
             <div className="text-lg font-bold text-amber-600 dark:text-amber-300 mt-0.5">
@@ -246,7 +246,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               Spaced Repetition & Active Recall
             </span>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold pt-1">
+            <h2 className="font-sans text-2xl sm:text-3xl font-bold pt-1 tracking-tight">
               Routine du Jour (3-4 min)
             </h2>
           </div>

@@ -7,6 +7,7 @@ import {
   RotateCcw,
   AlertCircle,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { WordEntry } from '../../types/vocab';
 import {
@@ -21,6 +22,7 @@ interface TypingScribeGameProps {
   customMemoryTip?: string;
   onAnswer: (isCorrect: boolean, hintsUsed: number) => void;
   badgeLabel?: string;
+  pauseOnError?: boolean;
 }
 
 export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
@@ -30,6 +32,7 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
   customMemoryTip,
   onAnswer,
   badgeLabel,
+  pauseOnError = false,
 }) => {
   const exampleText =
     useSecondExample && word.example_2 ? word.example_2 : word.example_1;
@@ -43,20 +46,19 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
     [exampleText, clozeText, word.word]
   );
 
-  // Target used for the visual mask & anagram (exactHole fits directly into […])
   const maskTarget = parsed.exactHole || word.word;
 
   const [inputValue, setInputValue] = useState('');
   const [hintLevel, setHintLevel] = useState<0 | 1 | 2 | 3>(0);
   const [usedAnagramIndices, setUsedAnagramIndices] = useState<number[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [waitingManualNext, setWaitingManualNext] = useState(false);
   const [validationState, setValidationState] = useState<{
     isValid: boolean;
     isAlmostPerfect: boolean;
     feedbackMessage: string | null;
   } | null>(null);
 
-  // Scrambled letters for Hint 3 (Anagram mode)
   const scrambledLetters = useMemo(() => {
     const chars = maskTarget.split('').map((char, idx) => ({
       char,
@@ -69,7 +71,6 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
     return chars;
   }, [maskTarget]);
 
-  // Compute visual mask (_ _ _ _ _ _) according to current hintLevel
   const visualMask = useMemo(() => {
     const chars = maskTarget.split('');
     const totalLen = chars.length;
@@ -125,11 +126,16 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
     setSubmitted(true);
     setValidationState(result);
 
+    if (!result.isValid && pauseOnError) {
+      setWaitingManualNext(true);
+      return;
+    }
+
     setTimeout(
       () => {
         onAnswer(result.isValid, hintLevel);
       },
-      result.isAlmostPerfect ? 1800 : result.isValid ? 750 : 500
+      result.isAlmostPerfect ? 1800 : result.isValid ? 750 : 750
     );
   };
 
@@ -145,26 +151,23 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
       className="space-y-4"
     >
       <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 sm:p-6 shadow-ios border border-slate-200/70 dark:border-white/10 space-y-4">
-        {/* Top Row: Badge & Nature */}
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
             <PenTool className="w-3.5 h-3.5" />
             {badgeLabel || (allowHints ? 'Saisie guidée • Niv. 3.2' : 'Ancrage profond • Sans indice')}
           </span>
-          <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
             {word.nature}
           </span>
         </div>
 
-        {/* Short Definition */}
         <div>
-          <p className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white leading-snug">
+          <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-snug">
             « {word.definition_courte} »
           </p>
         </div>
 
-        {/* Cloze Sentence */}
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E]/80 border border-slate-200/60 dark:border-white/10 text-sm sm:text-base text-slate-700 dark:text-slate-200 leading-relaxed">
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E]/80 border border-slate-200/60 dark:border-white/10 text-base text-slate-800 dark:text-slate-100 leading-relaxed">
           «{' '}
           {clozeParts.map((part, idx) => (
             <React.Fragment key={idx}>
@@ -181,11 +184,11 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
 
         {/* Visual Letter Mask (_ _ _ _ _ _) */}
         <div className="py-2 text-center">
-          <div className="inline-flex flex-wrap justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
+          <div className="inline-flex flex-wrap justify-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
             {visualMask.map((char, idx) => (
               <span
                 key={idx}
-                className={`font-mono text-base sm:text-lg font-bold ${
+                className={`font-sans text-base sm:text-lg font-bold ${
                   char === '_'
                     ? 'text-slate-400 dark:text-slate-500'
                     : 'text-indigo-600 dark:text-indigo-400'
@@ -195,23 +198,22 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
               </span>
             ))}
           </div>
-          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-            {maskTarget.length} caractères attendus dans le trou (ou tapez « {word.nature} » au complet)
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+            {maskTarget.length} caractères attendus dans le trou (ou tapez le mot complet)
           </div>
         </div>
 
-        {/* Hint 2 Box: Long Definition & Memory Tip */}
         {hintLevel >= 2 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="p-3.5 rounded-2xl bg-amber-50/90 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/25 text-xs sm:text-sm text-amber-900 dark:text-amber-200 space-y-1.5"
+            className="p-3.5 rounded-2xl bg-amber-50/90 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/25 text-sm text-amber-950 dark:text-amber-200 space-y-1.5"
           >
             <div className="font-semibold flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-amber-500" />
               <span>Indice 2 : Définition complète & Mémo</span>
             </div>
-            <p>{word.definition}</p>
+            <p className="leading-relaxed">{word.definition}</p>
             {tip && (
               <p className="font-medium text-amber-800 dark:text-amber-300 pt-1">
                 💡 Astuce : {tip}
@@ -220,12 +222,11 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
           </motion.div>
         )}
 
-        {/* Almost Perfect Feedback Banner */}
         {validationState?.isAlmostPerfect && validationState.feedbackMessage && (
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-500/20 border-2 border-amber-400 text-amber-900 dark:text-amber-200 flex items-center gap-2.5 text-sm font-medium"
+            className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-500/20 border-2 border-amber-400 text-amber-950 dark:text-amber-200 flex items-center gap-2.5 text-sm font-medium"
           >
             <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
             <span>{validationState.feedbackMessage}</span>
@@ -250,7 +251,7 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
-              className={`w-full px-4 py-3.5 rounded-2xl text-lg font-serif font-bold border-2 outline-none transition-all ${
+              className={`w-full px-4 py-3.5 rounded-2xl text-lg font-sans font-bold border-2 outline-none transition-all ${
                 submitted
                   ? validationState?.isValid
                     ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-900 dark:text-emerald-200'
@@ -260,10 +261,9 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
             />
           </div>
         ) : (
-          /* Hint 3: Clickable Anagram Mode */
           <div className="space-y-3">
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E] border border-slate-200 dark:border-white/10 min-h-[3.25rem]">
-              <span className="font-serif font-bold text-xl text-indigo-600 dark:text-indigo-400 tracking-wide">
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E] border border-slate-200 dark:border-white/10 min-h-[3.25rem]">
+              <span className="font-sans font-bold text-lg text-indigo-600 dark:text-indigo-400 tracking-wide">
                 {inputValue || 'Touchez les lettres dans l’ordre…'}
               </span>
               {inputValue && !submitted && (
@@ -286,7 +286,7 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
                     type="button"
                     disabled={used || submitted}
                     onClick={() => handleAnagramTap(idx, item.char)}
-                    className={`w-10 h-11 rounded-xl font-serif font-bold text-lg border-2 transition-all ${
+                    className={`w-10 h-11 rounded-xl font-sans font-bold text-lg border-2 transition-all ${
                       used
                         ? 'bg-slate-100 dark:bg-white/5 border-slate-200/40 dark:border-white/5 text-slate-300 dark:text-slate-600 scale-90'
                         : 'bg-slate-50 dark:bg-[#2C2C2E] border-slate-200 dark:border-white/15 text-slate-900 dark:text-white hover:border-indigo-500 active:scale-95'
@@ -300,29 +300,48 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
           </div>
         )}
 
-        {/* Action Buttons Row */}
-        <div className="flex items-center gap-2.5">
-          {allowHints && (
+        {!waitingManualNext ? (
+          <div className="flex items-center gap-2.5">
+            {allowHints && (
+              <button
+                type="button"
+                disabled={hintLevel >= 3 || submitted}
+                onClick={handleTriggerHint}
+                className="px-4 py-3.5 rounded-2xl border-2 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 text-amber-900 dark:text-amber-300 font-semibold text-sm flex items-center gap-1.5 disabled:opacity-45 transition-all shrink-0"
+              >
+                <Lightbulb className="w-4 h-4 text-amber-500" />
+                <span>Indice 💡 ({hintLevel}/3)</span>
+              </button>
+            )}
+
+            <button
+              type="submit"
+              disabled={!inputValue.trim() || submitted}
+              className="flex-1 py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 dark:disabled:bg-white/10 disabled:text-slate-400 text-white font-semibold text-base shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all"
+            >
+              <Check className="w-5 h-5" />
+              <span>Valider</span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3 pt-1">
+            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-500/15 border border-rose-300 dark:border-rose-500/40 text-sm text-rose-950 dark:text-rose-200 space-y-1">
+              <div className="font-bold">
+                Orthographe attendue :{' '}
+                <span className="underline">{word.word}</span>
+              </div>
+              <p className="text-xs sm:text-sm opacity-90">{word.definition}</p>
+            </div>
             <button
               type="button"
-              disabled={hintLevel >= 3 || submitted}
-              onClick={handleTriggerHint}
-              className="px-4 py-3.5 rounded-2xl border-2 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold text-sm flex items-center gap-1.5 disabled:opacity-45 transition-all shrink-0"
+              onClick={() => onAnswer(false, hintLevel)}
+              className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base flex items-center justify-center gap-2"
             >
-              <Lightbulb className="w-4 h-4 text-amber-500" />
-              <span>Indice 💡 ({hintLevel}/3)</span>
+              <span>Question suivante</span>
+              <ArrowRight className="w-5 h-5" />
             </button>
-          )}
-
-          <button
-            type="submit"
-            disabled={!inputValue.trim() || submitted}
-            className="flex-1 py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 dark:disabled:bg-white/10 disabled:text-slate-400 text-white font-semibold text-base shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all"
-          >
-            <Check className="w-5 h-5" />
-            <span>Valider</span>
-          </button>
-        </div>
+          </div>
+        )}
       </form>
     </motion.div>
   );

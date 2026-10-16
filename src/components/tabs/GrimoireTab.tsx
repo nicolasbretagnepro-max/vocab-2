@@ -77,7 +77,7 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
               Collection & Dictionnaire
             </span>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+            <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
               Grimoire
             </h1>
           </div>

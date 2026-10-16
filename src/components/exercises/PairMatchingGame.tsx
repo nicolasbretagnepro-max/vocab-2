@@ -6,12 +6,14 @@ import { WordEntry } from '../../types/vocab';
 interface PairMatchingGameProps {
   words: WordEntry[];
   onComplete: (mistakesCount: number) => void;
+  onMistakeWord?: (word: WordEntry) => void;
   titleLabel?: string;
 }
 
 export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
   words,
   onComplete,
+  onMistakeWord,
   titleLabel = 'Consolidation • Reliez les 4 paires',
 }) => {
   const pairItems = useMemo(() => words.slice(0, 4), [words]);
@@ -55,12 +57,16 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
       }
     } else {
       setMistakes((m) => m + 1);
+      const missedEntry = pairItems.find((w) => w.word === leftWord);
+      if (missedEntry && onMistakeWord) {
+        onMistakeWord(missedEntry);
+      }
       setWrongPair({ left: leftWord, right: rightWord });
       setTimeout(() => {
         setWrongPair(null);
         setSelectedLeft(null);
         setSelectedRight(null);
-      }, 500);
+      }, 650);
     }
   };
 
@@ -101,11 +107,11 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
             <Sparkles className="w-3.5 h-3.5" />
             {titleLabel}
           </span>
-          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             {matchedWords.size} / {pairItems.length} reliés
           </span>
         </div>
-        <p className="mt-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
           Touchez un mot à gauche puis sa définition courte à droite.
         </p>
       </div>
@@ -140,15 +146,15 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
                 animate={isWrong ? { x: [-5, 5, -4, 4, 0] } : { x: 0 }}
                 transition={{ duration: 0.25 }}
                 onClick={() => handleSelectLeft(item.word)}
-                className={`w-full min-h-[5.25rem] p-3.5 rounded-2xl border-2 shadow-sm flex flex-col justify-center items-start text-left transition-all ${cls}`}
+                className={`w-full min-h-[5.5rem] p-3.5 rounded-2xl border-2 shadow-sm flex flex-col justify-center items-start text-left transition-all ${cls}`}
               >
                 <div className="flex items-center justify-between w-full gap-1">
-                  <span className="font-serif font-bold text-base sm:text-lg leading-tight break-words">
+                  <span className="font-sans font-bold text-base sm:text-lg leading-snug break-words">
                     {item.word}
                   </span>
                   {isMatched && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
                 </div>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   {item.nature}
                 </span>
               </motion.button>
@@ -164,7 +170,7 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
             const isWrong = wrongPair?.right === item.word;
 
             let cls =
-              'bg-white dark:bg-[#1C1C1E] border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-200';
+              'bg-white dark:bg-[#1C1C1E] border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100';
             if (isMatched) {
               cls =
                 'bg-emerald-50/80 dark:bg-emerald-500/15 border-emerald-400/60 text-emerald-700 dark:text-emerald-300 opacity-65';
@@ -184,9 +190,9 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
                 animate={isWrong ? { x: [-5, 5, -4, 4, 0] } : { x: 0 }}
                 transition={{ duration: 0.25 }}
                 onClick={() => handleSelectRight(item.word)}
-                className={`w-full min-h-[5.25rem] p-3.5 rounded-2xl border-2 shadow-sm flex items-center justify-between text-left transition-all ${cls}`}
+                className={`w-full min-h-[5.5rem] p-3.5 rounded-2xl border-2 shadow-sm flex items-center justify-between text-left transition-all ${cls}`}
               >
-                <span className="text-xs sm:text-sm font-medium leading-snug">
+                <span className="text-sm font-medium leading-snug">
                   {item.definition_courte}
                 </span>
                 {isMatched && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-1" />}

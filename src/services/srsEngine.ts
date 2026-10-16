@@ -467,13 +467,16 @@ export function updateWordProgressOnAnswer(
 
   // Handle Level 1 3-pass progression
   if (queueItem.targetLevel === 1 || base.level <= 1) {
+    if (base.level === 2 && queueItem.isRetry) {
+      return base;
+    }
     if (queueItem.passIndex === 1) {
       base.level = 1;
-      base.step = 1;
+      base.step = Math.max(base.step, 1);
       base.nextReviewDate = today;
     } else if (queueItem.passIndex === 2) {
       base.level = 1;
-      base.step = 2;
+      base.step = Math.max(base.step, 2);
       base.nextReviewDate = today;
     } else if (queueItem.passIndex === 3) {
       // All 3 passes completed in the same session -> Level 2 (step: 0), J+1

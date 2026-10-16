@@ -256,6 +256,8 @@ export const App: React.FC = () => {
                 highScores={stats.highScores}
                 onUpdateHighScore={handleUpdateHighScore}
                 onAwardXp={handleAwardXp}
+                onSelectWord={(w) => setSelectedModalWord(w)}
+                onToggleFavorite={handleToggleFavorite}
               />
             )}
 
