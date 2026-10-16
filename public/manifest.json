@@ -1,0 +1,20 @@
+{
+  "name": "L'Atelier du Mot — Vocabulaire Soutenu",
+  "short_name": "Vocabulaire",
+  "description": "Apprentissage du vocabulaire français soutenu par répétition espacée (Leitner) et rappel actif.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
