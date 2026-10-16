@@ -34,7 +34,9 @@ export function getDefaultStats(): UserStats {
       motJuste: 0,
       tapisExpress: 0,
       scribe: 0,
+      duelParonymes: 0,
     },
+    activityHistory: {},
   };
 }
 
@@ -103,7 +105,6 @@ export function loadStats(): UserStats {
     let streak = typeof parsed.streak === 'number' ? parsed.streak : 0;
     const lastActiveDate = parsed.lastActiveDate || null;
 
-    // Reset streak if last activity was before yesterday
     if (
       lastActiveDate &&
       lastActiveDate !== today &&
@@ -125,6 +126,7 @@ export function loadStats(): UserStats {
         ...defaults.highScores,
         ...(parsed.highScores || {}),
       },
+      activityHistory: parsed.activityHistory || {},
     };
   } catch {
     return getDefaultStats();
@@ -142,7 +144,8 @@ export function saveStats(stats: UserStats): void {
 export function recordActivityAndXp(
   currentStats: UserStats,
   xpGained: number,
-  markRoutineDone = false
+  markRoutineDone = false,
+  reviewsCompleted = 1
 ): UserStats {
   const today = getIsoDateString(0);
   const yesterday = getIsoDateString(-1);
@@ -160,17 +163,28 @@ export function recordActivityAndXp(
 
   const baseDailyXp =
     currentStats.dailyXpDate === today ? currentStats.dailyXp : 0;
+  const newDailyXp = baseDailyXp + xpGained;
+
+  const prevHistory = currentStats.activityHistory || {};
+  const prevTodayLog = prevHistory[today] || { xp: 0, reviews: 0 };
 
   const updated: UserStats = {
     ...currentStats,
     streak,
     lastActiveDate: today,
-    dailyXp: baseDailyXp + xpGained,
+    dailyXp: newDailyXp,
     dailyXpDate: today,
     totalXp: currentStats.totalXp + xpGained,
     routineCompletedDate: markRoutineDone
       ? today
       : currentStats.routineCompletedDate,
+    activityHistory: {
+      ...prevHistory,
+      [today]: {
+        xp: Math.max(newDailyXp, prevTodayLog.xp + xpGained),
+        reviews: prevTodayLog.reviews + reviewsCompleted,
+      },
+    },
   };
 
   saveStats(updated);

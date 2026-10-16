@@ -10,16 +10,22 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import {
+  FlashcardConfidence,
   SessionQueueItem,
   WordEntry,
   WordProgress,
 } from '../../types/vocab';
-import { updateWordProgressOnAnswer } from '../../services/srsEngine';
+import {
+  updateWordProgressOnAnswer,
+  updateWordProgressOnFlashcard,
+} from '../../services/srsEngine';
 import { DiscoveryCard } from '../exercises/DiscoveryCard';
 import { MultipleChoiceGame } from '../exercises/MultipleChoiceGame';
 import { PairMatchingGame } from '../exercises/PairMatchingGame';
 import { SyllableBuilderGame } from '../exercises/SyllableBuilderGame';
 import { TypingScribeGame } from '../exercises/TypingScribeGame';
+import { FlashcardRecallGame } from '../exercises/FlashcardRecallGame';
+import { ParonymDuelGame } from '../exercises/ParonymDuelGame';
 import { CorrectionSheet } from '../exercises/CorrectionSheet';
 
 interface SessionRunnerProps {
@@ -29,7 +35,7 @@ interface SessionRunnerProps {
   progressMap: Record<string, WordProgress>;
   onUpdateWordProgress: (word: string, updated: WordProgress) => void;
   onToggleFavorite: (word: string) => void;
-  onFinishSession: (xpEarned: number) => void;
+  onFinishSession: (xpEarned: number, reviewsCount: number) => void;
   onCancel: () => void;
 }
 
@@ -80,6 +86,35 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
     }
   };
 
+  const handleFlashcardRate = (confidence: FlashcardConfidence) => {
+    if (!currentItem) return;
+    const currentProgress = progressMap[currentItem.wordEntry.word];
+    const updated = updateWordProgressOnFlashcard(
+      currentProgress,
+      currentItem.wordEntry.word,
+      confidence
+    );
+    onUpdateWordProgress(currentItem.wordEntry.word, updated);
+
+    if (confidence === 'forgot') {
+      setMistakeCount((m) => m + 1);
+      // Re-queue at end of flashcard session to verify recall before finishing
+      setQueue((prev) => [
+        ...prev,
+        {
+          ...currentItem,
+          id: `${currentItem.id}-retry-${prev.length}`,
+          isRetry: true,
+        },
+      ]);
+    } else {
+      const gained = confidence === 'easy' ? 12 : 8;
+      setXpEarned((x) => x + gained);
+      setCorrectCount((c) => c + 1);
+    }
+    advanceToNext();
+  };
+
   const handleExerciseResult = (isCorrect: boolean, hintsUsed = 0) => {
     if (!currentItem) return;
 
@@ -103,6 +138,12 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
       advanceToNext();
     } else {
       setMistakeCount((m) => m + 1);
+      // For paronym-duel, the component already shows a side-by-side comparison and a "Continuer" button
+      if (currentItem.exerciseType === 'paronym-duel') {
+        advanceToNext();
+        return;
+      }
+
       // Re-queue the failed item at the end of the session so it is re-validated before finishing
       const retryExercise =
         currentItem.exerciseType === 'discovery'
@@ -113,7 +154,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
         ...prev,
         {
           ...currentItem,
-          id: `${currentItem.id}-retry-${ prev.length }`,
+          id: `${currentItem.id}-retry-${prev.length}`,
           exerciseType: retryExercise,
           isRetry: true,
         },
@@ -184,7 +225,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
 
           <button
             type="button"
-            onClick={() => onFinishSession(xpEarned)}
+            onClick={() => onFinishSession(xpEarned, correctCount)}
             className="w-full py-4 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all"
           >
             <span>Retour à l'accueil</span>
@@ -363,6 +404,23 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
                   onComplete={() => handleExerciseResult(true, 0)}
                 />
               )}
+
+            {currentItem.exerciseType === 'paronym-duel' &&
+              currentItem.duelOpponent && (
+                <ParonymDuelGame
+                  wordA={currentItem.wordEntry}
+                  wordB={currentItem.duelOpponent}
+                  groupLabel="Défi de fin de séance"
+                  onResult={(ok) => handleExerciseResult(ok, 0)}
+                />
+              )}
+
+            {currentItem.exerciseType === 'flashcard-recall' && (
+              <FlashcardRecallGame
+                wordEntry={currentItem.wordEntry}
+                onRate={handleFlashcardRate}
+              />
+            )}
           </div>
         )}
       </AnimatePresence>

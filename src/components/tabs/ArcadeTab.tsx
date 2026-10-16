@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   Star,
   ChevronRight,
+  Swords,
+  Sparkles,
 } from 'lucide-react';
 import {
   ArcadeHighScores,
@@ -24,6 +26,8 @@ import {
 import { MultipleChoiceGame } from '../exercises/MultipleChoiceGame';
 import { PairMatchingGame } from '../exercises/PairMatchingGame';
 import { TypingScribeGame } from '../exercises/TypingScribeGame';
+import { ParonymDuelGame } from '../exercises/ParonymDuelGame';
+import { generateDuelPairs, ParonymDuelPair } from '../../utils/paronymEngine';
 
 interface ArcadeTabProps {
   allWords: WordEntry[];
@@ -33,6 +37,7 @@ interface ArcadeTabProps {
   onAwardXp: (xp: number) => void;
   onSelectWord: (word: WordEntry) => void;
   onToggleFavorite: (wordKey: string) => void;
+  onStartFlashcardRecall: () => void;
 }
 
 type ArcadeGameType =
@@ -40,7 +45,8 @@ type ArcadeGameType =
   | 'chrono2min'
   | 'motJuste'
   | 'tapisExpress'
-  | 'scribe';
+  | 'scribe'
+  | 'duelParonymes';
 
 export const ArcadeTab: React.FC<ArcadeTabProps> = ({
   allWords,
@@ -50,6 +56,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
   onAwardXp,
   onSelectWord,
   onToggleFavorite,
+  onStartFlashcardRecall,
 }) => {
   const [onlySeenWords, setOnlySeenWords] = useState(false);
   const [activeGame, setActiveGame] = useState<ArcadeGameType>(null);
@@ -68,6 +75,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
 
   // Game States
   const [gameQueue, setGameQueue] = useState<WordEntry[]>([]);
+  const [duelPairs, setDuelPairs] = useState<ParonymDuelPair[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -128,6 +136,10 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
     if (!game) return;
     const shuffled = [...activePool].sort(() => Math.random() - 0.5);
     setGameQueue(shuffled);
+    if (game === 'duelParonymes') {
+      const pairs = generateDuelPairs(activePool, allWords, 6);
+      setDuelPairs(pairs);
+    }
     setCurrentIndex(0);
     setScore(0);
     setCombo(0);
@@ -199,6 +211,22 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
       recordMistake(currentWord);
     }
     if (currentIndex + 1 >= 5) {
+      setGameOver(true);
+    } else {
+      setCurrentIndex((i) => i + 1);
+    }
+  };
+
+  // 5. Le Duel des Nuances & Paronymes (6 rounds)
+  const handleDuelResult = (isCorrect: boolean) => {
+    const pair = duelPairs[currentIndex];
+    if (isCorrect) {
+      setScore((s) => s + 30);
+    } else if (pair) {
+      recordMistake(pair.wordA);
+      recordMistake(pair.wordB);
+    }
+    if (currentIndex + 1 >= duelPairs.length) {
       setGameOver(true);
     } else {
       setCurrentIndex((i) => i + 1);
@@ -445,6 +473,20 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
             onAnswer={handleScribeAnswer}
           />
         )}
+
+        {activeGame === 'duelParonymes' && duelPairs[currentIndex] && (
+          <ParonymDuelGame
+            key={`duel-${currentIndex}`}
+            wordA={duelPairs[currentIndex].wordA}
+            wordB={duelPairs[currentIndex].wordB}
+            groupLabel={`Duel ${currentIndex + 1} / ${duelPairs.length} • ${
+              duelPairs[currentIndex].relationType === 'paronyme'
+                ? 'Paronymes proches'
+                : 'Nuance éditoriale'
+            }`}
+            onResult={handleDuelResult}
+          />
+        )}
       </div>
     );
   }
@@ -462,7 +504,7 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
             Arcade
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
-            Mini-jeux rapides pour stimuler votre vitesse de rappel.
+            Mini-jeux rapides pour stimuler votre vitesse de rappel et affiner vos nuances.
           </p>
         </div>
 
@@ -499,8 +541,64 @@ export const ArcadeTab: React.FC<ArcadeTabProps> = ({
         )}
       </div>
 
-      {/* 4 Mini-Game Cards */}
+      {/* Mini-Game Cards */}
       <div className="grid grid-cols-1 gap-3.5">
+        {/* Lot 4: Le Duel des Paronymes & Nuances Proches */}
+        <button
+          type="button"
+          onClick={() => startGame('duelParonymes')}
+          className="w-full text-left bg-white dark:bg-[#1C1C1E] hover:border-purple-400 rounded-3xl p-5 shadow-ios border border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-4 transition-all active:scale-[0.99]"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <Swords className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
+                  ⚔️ Le Duel des Nuances
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-500/25 text-purple-700 dark:text-purple-300">
+                  109 Groupes & Paronymes
+                </span>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
+                Départagez 2 mots proches ou paronymes dans 2 phrases à trous en opposition directe.
+              </p>
+              <div className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400 pt-1">
+                <Trophy className="w-3.5 h-3.5" />
+                <span>High Score : {highScores.duelParonymes || 0} pts</span>
+              </div>
+            </div>
+          </div>
+        </button>
+
+        {/* Lot 2: Rappel Éclair (Flashcards Active Recall) */}
+        <button
+          type="button"
+          onClick={onStartFlashcardRecall}
+          className="w-full text-left bg-white dark:bg-[#1C1C1E] hover:border-sky-400 rounded-3xl p-5 shadow-ios border border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-4 transition-all active:scale-[0.99]"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
+                  ⚡ Rappel Éclair (Flashcards)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-500/25 text-sky-700 dark:text-sky-300">
+                  Impact SRS
+                </span>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
+                10 cartes recto/verso sans QCM : formulez le sens mentalement puis auto-évaluez votre maîtrise.
+              </p>
+            </div>
+          </div>
+        </button>
+
         {/* 1. 2 Minutes Chrono */}
         <button
           type="button"

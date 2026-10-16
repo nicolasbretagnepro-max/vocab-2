@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   ShieldAlert,
   Star,
+  HeartPulse,
+  Zap,
 } from 'lucide-react';
 import {
   DailyQuotaOption,
@@ -24,9 +26,12 @@ import {
   calculateDailyNewWordsAllowance,
   getDueWords,
   getIsoDateString,
+  getLeechWords,
   getWipCount,
+  isWordLeech,
   WIP_LIMIT_LEVEL_1_2,
 } from '../../services/srsEngine';
+import { ActivityCalendar } from '../widgets/ActivityCalendar';
 
 interface HomeTabProps {
   allWords: WordEntry[];
@@ -37,6 +42,8 @@ interface HomeTabProps {
   onStartDailyRoutine: () => void;
   onStartBonusNewWords: () => void;
   onStartFreeReview: () => void;
+  onStartFlashcardRecall: () => void;
+  onStartLeechTraining: () => void;
   onSelectWord: (word: WordEntry) => void;
 }
 
@@ -103,6 +110,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onStartDailyRoutine,
   onStartBonusNewWords,
   onStartFreeReview,
+  onStartFlashcardRecall,
+  onStartLeechTraining,
   onSelectWord,
 }) => {
   const [selectedBoxLevel, setSelectedBoxLevel] =
@@ -112,6 +121,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   const dueWords = useMemo(
     () => getDueWords(allWords, progressMap, today),
     [allWords, progressMap, today]
+  );
+
+  const leechWords = useMemo(
+    () => getLeechWords(allWords, progressMap),
+    [allWords, progressMap]
   );
 
   const wipCount = useMemo(() => getWipCount(progressMap), [progressMap]);
@@ -255,7 +269,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         <p className="text-sm text-indigo-100 leading-relaxed">
           {routineAlreadyDoneToday ? (
             <>
-              Votre routine quotidienne est bouclée ! Vous pouvez lancer une session bonus ou réviser librement.
+              Votre routine quotidienne est bouclée ! Vous pouvez lancer une session bonus, un Rappel Éclair ou réviser librement.
             </>
           ) : (
             <>
@@ -270,7 +284,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 {newWordsTodayAllowance > 1 ? 'x' : ''} mot
                 {newWordsTodayAllowance > 1 ? 's' : ''}
               </strong>{' '}
-              (en 3 passes).
+              (en 3 passes + Duel de nuances).
             </>
           )}
         </p>
@@ -303,27 +317,71 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </div>
         )}
 
-        {/* Secondary Buttons: Bonus +3 new words & Free review (10 questions) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+        {/* Secondary Buttons: Bonus +3 new words, Rappel Éclair & Free review */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
           <button
             type="button"
             onClick={onStartBonusNewWords}
-            className="py-3 px-4 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 backdrop-blur-sm transition-all"
+            className="py-3 px-3 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-[0.99] text-white font-semibold text-xs flex items-center justify-center gap-1.5 backdrop-blur-sm transition-all"
           >
-            <PlusCircle className="w-4 h-4 text-amber-300" />
-            <span>Session Bonus : +3 nouveaux mots</span>
+            <PlusCircle className="w-4 h-4 text-amber-300 shrink-0" />
+            <span>+3 nouveaux mots</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onStartFlashcardRecall}
+            className="py-3 px-3 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-[0.99] text-white font-semibold text-xs flex items-center justify-center gap-1.5 backdrop-blur-sm transition-all"
+          >
+            <Zap className="w-4 h-4 text-amber-300 shrink-0" />
+            <span>Rappel Éclair (10)</span>
           </button>
 
           <button
             type="button"
             onClick={onStartFreeReview}
-            className="py-3 px-4 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 backdrop-blur-sm transition-all"
+            className="py-3 px-3 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-[0.99] text-white font-semibold text-xs flex items-center justify-center gap-1.5 backdrop-blur-sm transition-all"
           >
-            <RefreshCw className="w-4 h-4 text-sky-300" />
-            <span>Révision libre (10 questions)</span>
+            <RefreshCw className="w-4 h-4 text-sky-300 shrink-0" />
+            <span>Révision libre (10)</span>
           </button>
         </div>
       </div>
+
+      {/* Lot 1: Dedicated Banner for Leech Words ("Mots Rebelles") when present */}
+      {leechWords.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-rose-50/90 dark:bg-rose-950/35 rounded-3xl p-5 border border-rose-200 dark:border-rose-800/60 shadow-ios flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <HeartPulse className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm sm:text-base text-rose-950 dark:text-rose-100">
+                  {leechWords.length} Mot{leechWords.length > 1 ? 's' : ''} Rebelle{leechWords.length > 1 ? 's' : ''} détecté{leechWords.length > 1 ? 's' : ''}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-200/80 dark:bg-rose-500/30 text-rose-900 dark:text-rose-200">
+                  3 erreurs de suite
+                </span>
+              </div>
+              <p className="text-xs text-rose-800/90 dark:text-rose-200/80 leading-relaxed">
+                Un entraînement ciblé (Fiche + Syllabes/Contexte) permet de lever le blocage et réinitialiser leur statut dès la première réussite.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onStartLeechTraining}
+            className="w-full sm:w-auto shrink-0 py-3 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-rose-600/20 transition-all"
+          >
+            Dompter mes mots rebelles
+          </button>
+        </motion.div>
+      )}
 
       {/* Interactive 5 Leitner Boxes */}
       <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-5 shadow-ios border border-slate-200/70 dark:border-white/10 space-y-4">
@@ -397,6 +455,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                         ) : (
                           wordsInBox.map((w) => {
                             const p = progressMap[w.word];
+                            const leech = isWordLeech(p);
                             return (
                               <button
                                 key={w.word}
@@ -411,6 +470,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                                     </span>
                                     {p?.favorite && (
                                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                                    )}
+                                    {leech && (
+                                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300">
+                                        Rebelle
+                                      </span>
                                     )}
                                   </div>
                                   <div className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
@@ -433,6 +497,12 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           })}
         </div>
       </div>
+
+      {/* Lot 5: 35-Day Activity Calendar Heatmap */}
+      <ActivityCalendar
+        activityHistory={stats.activityHistory}
+        dailyGoalXp={dailyXpGoal}
+      />
     </div>
   );
 };

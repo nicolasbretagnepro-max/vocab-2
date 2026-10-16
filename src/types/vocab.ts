@@ -21,6 +21,8 @@ export interface WordProgress {
   lastReviewedDate: string | null; // YYYY-MM-DD
   successCount: number;
   errorCount: number;
+  consecutiveErrors?: number; // Lot 1: Leech detection (3 consecutive errors -> leech, reset to 0 on success)
+  isLeech?: boolean;
   favorite: boolean;
   customMemoryTip?: string;
 }
@@ -39,6 +41,12 @@ export interface ArcadeHighScores {
   motJuste: number;
   tapisExpress: number;
   scribe: number;
+  duelParonymes?: number;
+}
+
+export interface DailyActivityLog {
+  xp: number;
+  reviews: number;
 }
 
 export interface UserStats {
@@ -49,6 +57,7 @@ export interface UserStats {
   totalXp: number;
   routineCompletedDate: string | null;
   highScores: ArcadeHighScores;
+  activityHistory?: Record<string, DailyActivityLog>; // YYYY-MM-DD -> { xp, reviews }
 }
 
 export interface AppSaveData {
@@ -60,6 +69,8 @@ export interface AppSaveData {
   customWords: WordEntry[];
 }
 
+export type FlashcardConfidence = 'forgot' | 'hesitant' | 'easy';
+
 export type ExerciseType =
   | 'discovery'
   | 'qcm-word-to-def'
@@ -69,7 +80,9 @@ export type ExerciseType =
   | 'syllable-builder'
   | 'typing-hinted'
   | 'typing-strict'
-  | 'pair-matching';
+  | 'pair-matching'
+  | 'paronym-duel'
+  | 'flashcard-recall';
 
 export interface SessionQueueItem {
   id: string;
@@ -80,4 +93,5 @@ export interface SessionQueueItem {
   passIndex?: 1 | 2 | 3; // For Level 1 3-pass discovery in same session
   isRetry?: boolean;
   pairWords?: WordEntry[]; // When exerciseType === 'pair-matching'
+  duelOpponent?: WordEntry; // When exerciseType === 'paronym-duel'
 }

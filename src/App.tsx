@@ -12,7 +12,9 @@ import {
 import {
   buildBonusNewWordsQueue,
   buildDailyRoutineQueue,
+  buildFlashcardRecallQueue,
   buildFreeReviewQueue,
+  buildLeechTrainingQueue,
   createInitialProgress,
 } from './services/srsEngine';
 import {
@@ -166,9 +168,31 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleFinishSession = (xpEarned: number) => {
+  const handleStartFlashcardRecall = () => {
+    const queue = buildFlashcardRecallQueue(allWords, progressMap, 10);
+    if (queue.length === 0) return;
+    setActiveSession({
+      title: 'Rappel Éclair (10 cartes)',
+      queue,
+      isDailyRoutine: false,
+    });
+  };
+
+  const handleStartLeechTraining = () => {
+    const queue = buildLeechTrainingQueue(allWords, progressMap);
+    if (queue.length === 0) return;
+    setActiveSession({
+      title: 'Entraînement • Mots Rebelles',
+      queue,
+      isDailyRoutine: false,
+    });
+  };
+
+  const handleFinishSession = (xpEarned: number, reviewsCount = 1) => {
     const isRoutine = activeSession?.isDailyRoutine ?? false;
-    setStats((prev) => recordActivityAndXp(prev, xpEarned, isRoutine));
+    setStats((prev) =>
+      recordActivityAndXp(prev, xpEarned, isRoutine, Math.max(1, reviewsCount))
+    );
     setActiveSession(null);
   };
 
@@ -192,7 +216,7 @@ export const App: React.FC = () => {
   };
 
   const handleAwardXp = (xp: number) => {
-    setStats((prev) => recordActivityAndXp(prev, xp, false));
+    setStats((prev) => recordActivityAndXp(prev, xp, false, 1));
   };
 
   const handleUpdateSettings = (next: UserSettings) => {
@@ -245,6 +269,8 @@ export const App: React.FC = () => {
                 onStartDailyRoutine={handleStartDailyRoutine}
                 onStartBonusNewWords={handleStartBonusNewWords}
                 onStartFreeReview={handleStartFreeReview}
+                onStartFlashcardRecall={handleStartFlashcardRecall}
+                onStartLeechTraining={handleStartLeechTraining}
                 onSelectWord={(w) => setSelectedModalWord(w)}
               />
             )}
@@ -258,6 +284,7 @@ export const App: React.FC = () => {
                 onAwardXp={handleAwardXp}
                 onSelectWord={(w) => setSelectedModalWord(w)}
                 onToggleFavorite={handleToggleFavorite}
+                onStartFlashcardRecall={handleStartFlashcardRecall}
               />
             )}
 

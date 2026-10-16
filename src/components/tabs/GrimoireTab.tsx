@@ -6,6 +6,7 @@ import {
   Filter,
   X,
   ChevronRight,
+  HeartPulse,
 } from 'lucide-react';
 import {
   LeitnerLevel,
@@ -13,6 +14,7 @@ import {
   WordProgress,
 } from '../../types/vocab';
 import { stripAccents } from '../../utils/clozeParser';
+import { isWordLeech } from '../../services/srsEngine';
 
 interface GrimoireTabProps {
   allWords: WordEntry[];
@@ -30,6 +32,7 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<'all' | LeitnerLevel>('all');
   const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [onlyLeeches, setOnlyLeeches] = useState(false);
   const [natureFilter, setNatureFilter] = useState<string>('all');
   const [visibleCount, setVisibleCount] = useState(60);
 
@@ -44,6 +47,11 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
       .map(([nature]) => nature);
   }, [allWords]);
 
+  const leechesCount = useMemo(
+    () => allWords.filter((w) => isWordLeech(progressMap[w.word])).length,
+    [allWords, progressMap]
+  );
+
   const filteredWords = useMemo(() => {
     const q = stripAccents(searchQuery);
     return allWords.filter((w) => {
@@ -52,6 +60,7 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
 
       if (levelFilter !== 'all' && level !== levelFilter) return false;
       if (onlyFavorites && !p?.favorite) return false;
+      if (onlyLeeches && !isWordLeech(p)) return false;
       if (natureFilter !== 'all' && w.nature.trim() !== natureFilter)
         return false;
 
@@ -64,7 +73,15 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
 
       return true;
     });
-  }, [allWords, progressMap, searchQuery, levelFilter, onlyFavorites, natureFilter]);
+  }, [
+    allWords,
+    progressMap,
+    searchQuery,
+    levelFilter,
+    onlyFavorites,
+    onlyLeeches,
+    natureFilter,
+  ]);
 
   const displayedWords = filteredWords.slice(0, visibleCount);
 
@@ -112,7 +129,7 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
           )}
         </div>
 
-        {/* Level Filter Pills + Favorites */}
+        {/* Level Filter Pills + Favorites + Mots Rebelles */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           <button
             type="button"
@@ -132,6 +149,26 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
               }`}
             />
             <span>Favoris</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOnlyLeeches(!onlyLeeches);
+              setVisibleCount(60);
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 shrink-0 border transition-all ${
+              onlyLeeches
+                ? 'bg-rose-100 border-rose-400 text-rose-900 dark:bg-rose-500/25 dark:text-rose-200'
+                : 'bg-slate-50 dark:bg-[#2C2C2E] border-slate-200/70 dark:border-white/10 text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            <HeartPulse
+              className={`w-3.5 h-3.5 ${
+                onlyLeeches ? 'text-rose-600 dark:text-rose-400' : ''
+              }`}
+            />
+            <span>Mots Rebelles ({leechesCount})</span>
           </button>
 
           <button
@@ -203,6 +240,7 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
             const p = progressMap[w.word];
             const level = p?.level ?? 0;
             const isGold = level === 5;
+            const isLeech = isWordLeech(p);
 
             return (
               <div
@@ -216,6 +254,8 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
                 className={`w-full rounded-3xl p-4 sm:p-5 transition-all cursor-pointer flex items-center justify-between gap-3 ${
                   isGold
                     ? 'bg-gradient-to-r from-amber-50/90 via-white to-amber-50/80 dark:from-amber-950/30 dark:via-[#1C1C1E] dark:to-amber-900/20 border-2 border-amber-400 shadow-gold'
+                    : isLeech
+                    ? 'bg-rose-50/40 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-800/60 shadow-ios'
                     : 'bg-white dark:bg-[#1C1C1E] border border-slate-200/70 dark:border-white/10 shadow-ios hover:border-indigo-300 dark:hover:border-indigo-500/40'
                 }`}
               >
@@ -233,6 +273,12 @@ export const GrimoireTab: React.FC<GrimoireTabProps> = ({
                     <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400">
                       {w.nature}
                     </span>
+                    {isLeech && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 dark:bg-rose-500/25 text-rose-700 dark:text-rose-300">
+                        <HeartPulse className="w-3 h-3" />
+                        Mot Rebelle
+                      </span>
+                    )}
                     {isGold ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400/25 text-amber-800 dark:text-amber-300 border border-amber-400/50">
                         <Crown className="w-3 h-3 text-amber-500" />
