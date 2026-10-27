@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
   X,
@@ -56,13 +56,23 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
   const [xpEarned, setXpEarned] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [mistakeCount, setMistakeCount] = useState(0);
-  const [isCompleted, setIsCompleted] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(initialQueue.length === 0);
+  const answeredIds = useRef(new Set<string>());
+  const advancedIds = useRef(new Set<string>());
+  const mounted = useRef(true);
 
   const currentItem = queue[currentIndex];
+  const activeId = useRef(currentItem?.id);
+  activeId.current = currentItem?.id;
   const progressPercent =
     queue.length > 0
       ? Math.min(100, Math.round((currentIndex / queue.length) * 100))
       : 100;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useEffect(() => {
     if (isCompleted) {
@@ -78,16 +88,25 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
     }
   }, [isCompleted]);
 
-  const advanceToNext = () => {
-    if (currentIndex + 1 >= queue.length) {
+  // Events from an outgoing card (or a delayed timer) must never grade the next one.
+  const acceptAnswer = () => {
+    if (!mounted.current || !currentItem || activeId.current !== currentItem.id || answeredIds.current.has(currentItem.id)) return false;
+    answeredIds.current.add(currentItem.id);
+    return true;
+  };
+
+  const advanceToNext = (hasAppendedRetry = false) => {
+    if (!mounted.current || !currentItem || activeId.current !== currentItem.id || advancedIds.current.has(currentItem.id)) return;
+    advancedIds.current.add(currentItem.id);
+    if (!hasAppendedRetry && currentIndex + 1 >= queue.length) {
       setIsCompleted(true);
     } else {
-      setCurrentIndex((i) => i + 1);
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
   const handleFlashcardRate = (confidence: FlashcardConfidence) => {
-    if (!currentItem) return;
+    if (!acceptAnswer()) return;
     const currentProgress = progressMap[currentItem.wordEntry.word];
     const updated = updateWordProgressOnFlashcard(
       currentProgress,
@@ -112,11 +131,11 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
       setXpEarned((x) => x + gained);
       setCorrectCount((c) => c + 1);
     }
-    advanceToNext();
+    advanceToNext(confidence === 'forgot');
   };
 
   const handleExerciseResult = (isCorrect: boolean, hintsUsed = 0) => {
-    if (!currentItem) return;
+    if (!acceptAnswer()) return;
 
     const currentProgress = progressMap[currentItem.wordEntry.word];
     const updated = updateWordProgressOnAnswer(
@@ -184,7 +203,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
               Bravo !
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Tous les mots de la séance ont été validés avec succès.
+              {queue.length === 0 ? 'Aucun exercice à réaliser dans cette séance.' : 'Vous avez parcouru les exercices de cette séance.'}
             </p>
           </div>
 
@@ -241,6 +260,13 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
   }
 
   const wordProgress = progressMap[currentItem.wordEntry.word];
+  const supportedTypes: SessionQueueItem['exerciseType'][] = [
+    'discovery', 'qcm-word-to-def', 'qcm-def-to-word', 'qcm-cloze-1', 'qcm-cloze-2',
+    'syllable-builder', 'typing-hinted', 'typing-strict', 'pair-matching', 'paronym-duel', 'flashcard-recall',
+  ];
+  const canRenderExercise = supportedTypes.includes(currentItem.exerciseType) &&
+    (currentItem.exerciseType !== 'pair-matching' || !!currentItem.pairWords?.length) &&
+    (currentItem.exerciseType !== 'paronym-duel' || !!currentItem.duelOpponent);
 
   const renderBadgeLabel = () => {
     if (currentItem.isRetry) {
@@ -300,7 +326,8 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
       </div>
 
       {/* Main Exercise Area or Correction Sheet */}
-      <AnimatePresence mode="wait">
+      {/* Mount the current view immediately. Learning must never wait for an exit-animation callback. */}
+      <section aria-label="Exercice en cours" key={`${currentItem.id}-${showingCorrectionFor ? 'correction' : 'question'}`}>
         {showingCorrectionFor ? (
           <CorrectionSheet
             key={`corr-${currentItem.id}`}
@@ -314,7 +341,15 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
             }}
           />
         ) : (
-          <div key={currentItem.id}>
+          !canRenderExercise ? (
+            <div role="status" className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6 space-y-4 shadow-ios">
+              <h2 className="text-xl font-bold">Cette question est indisponible</h2>
+              <p>L’exercice ne peut pas être affiché. Vous pouvez continuer sans erreur ni modification de votre progression.</p>
+              <button type="button" className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-semibold" onClick={() => advanceToNext()}>
+                Passer sans notation
+              </button>
+            </div>
+          ) : <div key={currentItem.id}>
             {currentItem.exerciseType === 'discovery' && (
               <DiscoveryCard
                 word={currentItem.wordEntry}
@@ -423,7 +458,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
             )}
           </div>
         )}
-      </AnimatePresence>
+      </section>
     </div>
   );
 };

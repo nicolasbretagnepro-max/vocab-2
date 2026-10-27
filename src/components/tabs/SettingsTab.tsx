@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { version } from '../../../package.json';
 import {
   Download,
   Copy,
@@ -209,6 +210,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Réglages & Sauvegarde
           </h1>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Version {version}</p>
         </div>
 
         {/* Daily Quota Selector (3, 5, or 7) */}
