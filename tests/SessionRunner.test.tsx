@@ -97,6 +97,15 @@ describe('routine transitions', () => {
     expect(onFinish).toHaveBeenCalledWith(0, 0);
   });
 
+  it('a rapid double tap on the bilan awards the session only once', async () => {
+    const { onFinish } = mount([item('1', 'discovery')]);
+    fireEvent.click(screen.getByRole('button', { name: "J'ai mémorisé ce mot" }));
+    const finish = screen.getByRole('button', { name: /Retour à l.accueil/ });
+    act(() => { finish.click(); finish.click(); });
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onFinish).toHaveBeenCalledWith(5, 1);
+  });
+
   it('a second typing question starts with a fresh input', async () => {
     mount([item('1', 'typing-strict'), item('2', 'typing-strict', apaiser)]);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'exulter' } });

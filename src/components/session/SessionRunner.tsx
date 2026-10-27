@@ -59,6 +59,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
   const [isCompleted, setIsCompleted] = useState(initialQueue.length === 0);
   const answeredIds = useRef(new Set<string>());
   const advancedIds = useRef(new Set<string>());
+  const finishCommitted = useRef(false);
   const mounted = useRef(true);
 
   const currentItem = queue[currentIndex];
@@ -244,7 +245,11 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
 
           <button
             type="button"
-            onClick={() => onFinishSession(xpEarned, correctCount)}
+            onClick={() => {
+              if (!mounted.current || finishCommitted.current) return;
+              finishCommitted.current = true;
+              onFinishSession(xpEarned, correctCount);
+            }}
             className="w-full py-4 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all"
           >
             <span>Retour à l'accueil</span>
