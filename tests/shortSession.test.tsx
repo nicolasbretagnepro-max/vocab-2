@@ -48,6 +48,7 @@ it('records a pair target once on its first association and leaves the support t
   fireEvent.click(screen.getByRole('button',{name:'Mot 0 nom',exact:true}));fireEvent.click(screen.getByRole('button',{name:'Sens 1',exact:true}));
   expect(update).toHaveBeenCalledTimes(1);expect(update.mock.calls[0][0]).toBe('Mot 0');expect(update.mock.calls[0][1].errorCount).toBe(1);
   expect(update.mock.calls[0][1].nextReviewDate).toBe('2026-11-27');
+  expect(screen.queryByText('1 / 4 tentés · 0 réussis')).not.toBeNull();
   await settle();expect((screen.getByRole('button',{name:'Mot 0 nom',exact:true}) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole('button',{name:'Sens 1',exact:true}) as HTMLButtonElement).disabled).toBe(false);
   fireEvent.click(screen.getByRole('button',{name:'Quitter la session'}));
@@ -71,9 +72,27 @@ it('a duel records only its recognition target before the correction is acknowle
   fireEvent.click(screen.getByRole('button',{name:'Quitter la session'}));expect(finish).toHaveBeenCalledWith(0,1,false);
 });
 
-it('an intentional exit rejects a delayed answer even before the parent unmounts',async()=>{
+it('saves a submitted answer before exit and rejects its delayed transition',async()=>{
   const {update,finish}=mount([item(0)]);
   fireEvent.click(screen.getByRole('button',{name:words[0].definition_courte,exact:true}));
   fireEvent.click(screen.getByRole('button',{name:'Quitter la session'}));await settle();
-  expect(update).not.toHaveBeenCalled();expect(finish).toHaveBeenCalledWith(0,0,false);
+  expect(update).toHaveBeenCalledTimes(1);expect(finish).toHaveBeenCalledWith(15,1,false);
+});
+
+it('records a wrong typed answer immediately even when exiting before correction',async()=>{
+  const {update,finish}=mount([{...item(0),exerciseType:'typing-strict'}]);
+  fireEvent.change(screen.getByRole('textbox'),{target:{value:'inconnu'}});
+  fireEvent.click(screen.getByRole('button',{name:'Valider',exact:true}));
+  expect(update).toHaveBeenCalledTimes(1);expect(update.mock.calls[0][1].errorCount).toBe(1);
+  fireEvent.click(screen.getByRole('button',{name:'Quitter la session'}));await settle();
+  expect(update).toHaveBeenCalledTimes(1);expect(finish).toHaveBeenCalledWith(0,1,false);
+});
+
+it('records a syllable submission before its delayed feedback completes',async()=>{
+  const {update,finish}=mount([{...item(0),exerciseType:'syllable-builder',targetLevel:3}]);
+  const chunk=screen.getAllByRole('button').find(b=>b.textContent&&!b.textContent.includes('Valider')&&b.getAttribute('aria-label')!=='Quitter la session')!;
+  fireEvent.click(chunk);fireEvent.click(screen.getByRole('button',{name:/Valider «/}));
+  expect(update).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button',{name:'Quitter la session'}));await settle();
+  expect(update).toHaveBeenCalledTimes(1);expect(finish.mock.calls[0][1]).toBe(1);
 });

@@ -134,27 +134,6 @@ export function getDueWords(
 }
 
 /**
- * Calculates how many new words should be introduced today according to Anti-Avalanche rules:
- * - WIP Limit: Max 18 words in Level 1 + Level 2
- * - If dueCount >= 15 -> 0 new words
- * - If dueCount between 8 and 14 -> 3 new words (capped by user preference if 3)
- * - Otherwise -> user's dailyNewWordsQuota (3, 5, or 7)
- */
-export function calculateDailyNewWordsAllowance(
-  dueCount: number,
-  wipCount: number,
-  configuredQuota: DailyQuotaOption
-): number {
-  const availableWipSlots = Math.max(0, WIP_LIMIT_LEVEL_1_2 - wipCount);
-  if (availableWipSlots === 0) return 0;
-  if (dueCount >= 15) return 0;
-  if (dueCount >= 8 && dueCount <= 14) {
-    return Math.min(3, configuredQuota, availableWipSlots);
-  }
-  return Math.min(configuredQuota, availableWipSlots);
-}
-
-/**
  * Extracts normalized 3-letter prefix for Anti-Interference filtering
  */
 export function getThreeLetterPrefix(word: string): string {
@@ -223,10 +202,9 @@ export function getExerciseTypeForProgress(progress: WordProgress): ExerciseType
 
 /**
  * Builds the Daily Routine session queue:
- * - New words (and any incomplete Level 1 words) go through 3 passes in the SAME session.
+ * - New words go through 3 passes; incomplete Level 1 words resume their pending passes.
  * - Due review words are scheduled according to their Level and Step.
- * - Level 2 (step 0) words are included in a PairMatchingGame at the end of the session.
- * - Lot 4: Includes a Paronym / Nuance Duel at the end of the session on one of the session words.
+ * - Eligible games replace due recognition questions within the daily work budget.
  */
 export function buildDailyRoutineQueue(
   allWords: WordEntry[], progressMap: Record<string, WordProgress>, configuredQuota: DailyQuotaOption,
@@ -247,7 +225,8 @@ export function buildDailyRoutineQueue(
   const dueUnits=jobs.reduce((n,j)=>n+j.items.reduce((sum,q)=>sum+exerciseCost(q),0),0);
   const introduced=words.filter(w=>progressMap[w.word]?.introducedOn===today).length;
   const configured=configuredQuota===1?1:2;
-  const quota=options.allowNew===false?0:Math.max(0,Math.min(configured,dueUnits>=10?0:dueUnits>=7?1:2,18-getWipCount(progressMap))-introduced);
+  const dailyRemaining=Math.max(0,Math.min(configured,dueUnits>=10?0:dueUnits>=7?1:2)-introduced);
+  const quota=options.allowNew===false?0:Math.min(dailyRemaining,Math.max(0,WIP_LIMIT_LEVEL_1_2-getWipCount(progressMap)));
   // Stable per-day order: reopening the preview does not reshuffle the newcomer pool.
   const hash=(word:string)=>[...today+word].reduce((n,c)=>(Math.imul(n,31)+c.charCodeAt(0))>>>0,0);
   const prefixes=new Set(due.map(w=>getThreeLetterPrefix(w.word)));
@@ -520,7 +499,8 @@ export function updateWordProgressOnAnswer(
   isCorrect: boolean,
   queueItem: SessionQueueItem,
   hintsUsed = 0,
-  today = getIsoDateString(0)
+  today = getIsoDateString(0),
+  options: { preserveLearningSteps?: boolean } = {}
 ): WordProgress {
   const base: WordProgress = current
     ? { ...current }
@@ -548,6 +528,7 @@ export function updateWordProgressOnAnswer(
   }
 
   if (!isCorrect) {
+    const validatedLearningStep=base.level===1?base.step:0;
     base.errorCount += 1;
     base.consecutiveErrors = (base.consecutiveErrors || 0) + 1;
     base.isLeech =
@@ -560,7 +541,8 @@ export function updateWordProgressOnAnswer(
       base.nextReviewDate = getIsoDateString(1);
     } else {
       base.level = effectiveLevel as LeitnerLevel;
-      base.step = 0;
+      base.step = options.preserveLearningSteps&&queueItem.targetLevel===1
+        ? Math.min(validatedLearningStep,(queueItem.passIndex||1)-1):0;
       base.nextReviewDate = getIsoDateString(1);
     }
     return base;
@@ -577,6 +559,9 @@ export function updateWordProgressOnAnswer(
 
   // Handle Level 1 3-pass progression
   if (queueItem.targetLevel === 1 || base.level <= 1) {
+    // A later context success cannot replace a missing definition validation.
+    // Keep the pending prerequisite and its due date for the next short routine.
+    if(options.preserveLearningSteps&&queueItem.passIndex&&queueItem.passIndex>1&&base.level<=1&&base.step<queueItem.passIndex-1)return base;
     if (base.level === 2 && queueItem.isRetry) {
       return base;
     }

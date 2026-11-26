@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, X, Sparkles } from 'lucide-react';
 import { WordEntry } from '../../types/vocab';
 
 interface PairMatchingGameProps {
@@ -125,7 +125,7 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
             {titleLabel}
           </span>
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            {matchedWords.size} / {pairItems.length} reliés
+            {resolveOnAttempt?`${matchedWords.size} / ${pairItems.length} tentés · ${matchedWords.size-incorrectWords.size} réussis`:`${matchedWords.size} / ${pairItems.length} reliés`}
           </span>
         </div>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
@@ -172,7 +172,7 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
                   <span className="font-sans font-bold text-base sm:text-lg leading-snug break-words">
                     {item.word}
                   </span>
-                  {isMatched && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
+                  {isMatched && (incorrectWords.has(item.word)?<X className="w-4 h-4 text-rose-500 shrink-0" />:<Check className="w-4 h-4 text-emerald-500 shrink-0" />)}
                 </div>
                 <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   {item.nature}
@@ -216,7 +216,7 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
                 <span className="text-sm font-medium leading-snug">
                   {item.definition_courte}
                 </span>
-                {isMatched && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-1" />}
+                {isMatched && (incorrectWords.has(item.word)?<X className="w-4 h-4 text-rose-500 shrink-0 ml-1" />:<Check className="w-4 h-4 text-emerald-500 shrink-0 ml-1" />)}
               </motion.button>
             );
           })}

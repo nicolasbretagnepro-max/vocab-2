@@ -53,5 +53,5 @@ Files : `App.tsx`, `HomeTab.tsx`, package version, tests App et simulations, doc
 
 - [x] RED : l'accueil annonce la file bornée, ne remplit pas avec des mots futurs ; journée accomplie malgré mots différés ; bonus sans nouveautés, nouvelle instance et XP uniques ; GREEN intégration.
 - [x] Simuler semaines d'usage/retard, vérifier dates et couverture sans effacement ; lancer tests et build.
-- [ ] Contrôler navigateur à 393px et 320px, faire une revue indépendante puis corriger chaque défaut important RED/GREEN.
+- [x] Contrôler navigateur à 393px et 320px, faire une revue indépendante puis corriger chaque défaut important RED/GREEN.
 - [ ] Fusionner et pousser selon l'autorisation explicite ; vérifier workflow Pages, fichiers publics et numéro de version ; livrer avec limites honnêtes.

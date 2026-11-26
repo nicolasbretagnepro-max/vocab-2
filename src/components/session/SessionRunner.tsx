@@ -41,6 +41,7 @@ interface SessionRunnerProps {
   onCancel: () => void;
   shortRoutine?: { maxUnits: number; retryUnits: number };
   onContinueSession?: (xpEarned:number,reviewsCount:number)=>void;
+  onRecordCompletedSession?: (xpEarned:number,reviewsCount:number)=>void;
 }
 
 export const SessionRunner: React.FC<SessionRunnerProps> = ({
@@ -54,6 +55,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
   onCancel,
   shortRoutine,
   onContinueSession,
+  onRecordCompletedSession,
 }) => {
   const [queue, setQueue] = useState<SessionQueueItem[]>(initialQueue);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -64,8 +66,10 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
   const [mistakeCount, setMistakeCount] = useState(0);
   const [isCompleted, setIsCompleted] = useState(initialQueue.length === 0);
   const answeredIds = useRef(new Set<string>());
+  const resultTransitionIds = useRef(new Set<string>());
   const advancedIds = useRef(new Set<string>());
   const finishCommitted = useRef(false);
+  const completionRecorded = useRef(false);
   const mounted = useRef(true);
   const totals = useRef({xp:0,correct:0,wrong:0});
   const retryUsed = useRef(0), retriedWords=useRef(new Set<string>()), compositeResolved=useRef(new Set<string>());
@@ -94,6 +98,15 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
     const timer=setInterval(tick,1000);document.addEventListener('visibilitychange',changed);
     return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',changed);};
   },[!!shortRoutine,isCompleted]);
+
+  useEffect(() => {
+    if (isCompleted) {
+      if(shortRoutine&&onRecordCompletedSession&&!completionRecorded.current){
+        completionRecorded.current=true;
+        onRecordCompletedSession(totals.current.xp,totals.current.correct+totals.current.wrong);
+      }
+    }
+  }, [isCompleted,onRecordCompletedSession,shortRoutine]);
 
   useEffect(() => {
     if (isCompleted) {
@@ -183,8 +196,9 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
     advanceToNext(confidence === 'forgot');
   };
 
-  const handleExerciseResult = (isCorrect: boolean, hintsUsed = 0) => {
-    if (!acceptAnswer()) return;
+  // Save at validation; the exercise's animation only delays navigation/correction.
+  const recordExerciseResult = (isCorrect: boolean, hintsUsed = 0) => {
+    if (!acceptAnswer()) return false;
 
     const currentProgress = progressMap[currentItem.wordEntry.word];
     const updated = updateWordProgressOnAnswer(
@@ -192,19 +206,22 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
       currentItem.wordEntry.word,
       isCorrect,
       currentItem,
-      hintsUsed
+      hintsUsed,
+      undefined,
+      {preserveLearningSteps:!!shortRoutine}
     );
     onUpdateWordProgress(currentItem.wordEntry.word, updated);
-
+    const gained=currentItem.exerciseType==='discovery'?5:Math.max(5,15-hintsUsed*3);
+    credit(isCorrect,isCorrect?gained:0);
+    return true;
+  };
+  const handleExerciseResult = (isCorrect: boolean, hintsUsed = 0) => {
+    if(!mounted.current||finishCommitted.current||!currentItem||activeId.current!==currentItem.id||resultTransitionIds.current.has(currentItem.id))return;
+    if(!answeredIds.current.has(currentItem.id)&&!recordExerciseResult(isCorrect,hintsUsed))return;
+    resultTransitionIds.current.add(currentItem.id);
     if (isCorrect) {
-      const gained =
-        currentItem.exerciseType === 'discovery'
-          ? 5
-          : Math.max(5, 15 - hintsUsed * 3);
-      credit(true,gained);
       advanceToNext();
     } else {
-      credit(false,0);
       // For paronym-duel, the component already shows a side-by-side comparison and a "Continuer" button
       if (currentItem.exerciseType === 'paronym-duel') {
         advanceToNext();
@@ -434,6 +451,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
                 word={currentItem.wordEntry}
                 allWords={allWords}
                 mode="word-to-def"
+                onEvaluated={shortRoutine?recordExerciseResult:undefined}
                 badgeLabel={renderBadgeLabel()}
                 onAnswer={(ok) => handleExerciseResult(ok, 0)}
               />
@@ -444,6 +462,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
                 word={currentItem.wordEntry}
                 allWords={allWords}
                 mode="def-to-word"
+                onEvaluated={shortRoutine?recordExerciseResult:undefined}
                 badgeLabel={renderBadgeLabel()}
                 onAnswer={(ok) => handleExerciseResult(ok, 0)}
               />
@@ -454,6 +473,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
                 word={currentItem.wordEntry}
                 allWords={allWords}
                 mode="cloze-1"
+                onEvaluated={shortRoutine?recordExerciseResult:undefined}
                 badgeLabel={renderBadgeLabel()}
                 onAnswer={(ok) => handleExerciseResult(ok, 0)}
               />
@@ -464,6 +484,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
                 word={currentItem.wordEntry}
                 allWords={allWords}
                 mode="cloze-2"
+                onEvaluated={shortRoutine?recordExerciseResult:undefined}
                 badgeLabel={renderBadgeLabel()}
                 onAnswer={(ok) => handleExerciseResult(ok, 0)}
               />
@@ -472,6 +493,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
             {currentItem.exerciseType === 'syllable-builder' && (
               <SyllableBuilderGame
                 word={currentItem.wordEntry}
+                onEvaluated={shortRoutine?recordExerciseResult:undefined}
                 onAnswer={(ok) => handleExerciseResult(ok, 0)}
               />
             )}
@@ -480,6 +502,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
               <TypingScribeGame
                 word={currentItem.wordEntry}
                 allowHints={true}
+                onEvaluated={shortRoutine?recordExerciseResult:undefined}
                 useSecondExample={true}
                 customMemoryTip={wordProgress?.customMemoryTip}
                 badgeLabel={renderBadgeLabel()}
@@ -491,6 +514,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
               <TypingScribeGame
                 word={currentItem.wordEntry}
                 allowHints={false}
+                onEvaluated={shortRoutine?recordExerciseResult:undefined}
                 useSecondExample={false}
                 customMemoryTip={wordProgress?.customMemoryTip}
                 badgeLabel={renderBadgeLabel()}

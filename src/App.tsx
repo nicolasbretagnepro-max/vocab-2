@@ -60,6 +60,7 @@ export const App: React.FC = () => {
     shortRoutine?: ShortRoutinePlan;
   } | null>(null);
   const sessionSerial=useRef(0);
+  const recordedSessions=useRef(new Set<number>());
   const observedDay=useRef(getIsoDateString());
   const launchSession=(session:Omit<NonNullable<typeof activeSession>,'id'>)=>{
     const next={...session,id:++sessionSerial.current};setActiveSession(next);
@@ -199,10 +200,15 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleFinishSession = (xpEarned: number, reviewsCount = 0, completed = true) => {
+  const recordSession = (xpEarned: number, reviewsCount: number, completed: boolean) => {
+    if(!activeSession||recordedSessions.current.has(activeSession.id))return;
+    recordedSessions.current.add(activeSession.id);
     const isRoutine = activeSession?.isDailyRoutine ?? false;
     if(!activeSession?.shortRoutine||reviewsCount>0)setStats((prev) =>
       recordActivityAndXp(prev, xpEarned, isRoutine&&completed&&reviewsCount>0, Math.max(1, reviewsCount)));
+  };
+  const handleFinishSession = (xpEarned: number, reviewsCount = 0, completed = true) => {
+    recordSession(xpEarned,reviewsCount,completed);
     setActiveSession(null);
   };
 
@@ -267,6 +273,7 @@ export const App: React.FC = () => {
           onFinishSession={handleFinishSession}
           onCancel={() => setActiveSession(null)}
           shortRoutine={activeSession.shortRoutine}
+          onRecordCompletedSession={activeSession.shortRoutine?((xp,count)=>recordSession(xp,count,true)):undefined}
           onContinueSession={activeSession.shortRoutine&&buildDailyRoutineQueue(allWords,progressMap,settings.dailyNewWordsQuota,undefined,{allowNew:false}).queue.length?((xp,count)=>{handleFinishSession(xp,count,true);handleStartRoutineExtra();}):undefined}
         />
       ) : (

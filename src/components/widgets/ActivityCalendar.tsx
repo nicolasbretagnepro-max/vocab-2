@@ -135,7 +135,7 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
           </span>
           <span className="font-semibold text-slate-700 dark:text-slate-300">
             {selectedDay.xp > 0
-              ? `${selectedDay.xp} XP · ${selectedDay.reviews} séance${
+              ? `${selectedDay.xp} XP · ${selectedDay.reviews} révision${
                   selectedDay.reviews > 1 ? 's' : ''
                 }`
               : 'Aucune activité'}

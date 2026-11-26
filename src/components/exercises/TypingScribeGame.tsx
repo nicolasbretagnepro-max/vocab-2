@@ -21,6 +21,7 @@ interface TypingScribeGameProps {
   useSecondExample?: boolean;
   customMemoryTip?: string;
   onAnswer: (isCorrect: boolean, hintsUsed: number) => void;
+  onEvaluated?: (isCorrect: boolean, hintsUsed: number) => void;
   badgeLabel?: string;
   pauseOnError?: boolean;
 }
@@ -31,6 +32,7 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
   useSecondExample = true,
   customMemoryTip,
   onAnswer,
+  onEvaluated,
   badgeLabel,
   pauseOnError = false,
 }) => {
@@ -125,6 +127,7 @@ export const TypingScribeGame: React.FC<TypingScribeGameProps> = ({
     );
     setSubmitted(true);
     setValidationState(result);
+    onEvaluated?.(result.isValid,hintLevel);
 
     if (!result.isValid && pauseOnError) {
       setWaitingManualNext(true);

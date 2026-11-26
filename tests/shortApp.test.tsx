@@ -38,3 +38,37 @@ it('refreshes the daily objective when the open app returns on a new date',()=>{
   expect(screen.queryByText('Objectif du jour accompli')).toBeNull();
   expect((screen.getByRole('button',{name:'Lancer ma routine courte'}) as HTMLButtonElement).disabled).toBe(false);
 });
+
+it('saves the completed goal and XP before leaving the recap and survives a reload',async()=>{
+  seed(['Exulter']);render(<App/>);
+  fireEvent.click(screen.getByRole('button',{name:'Lancer ma routine courte'}));
+  fireEvent.change(screen.getByRole('textbox'),{target:{value:'exulter'}});
+  fireEvent.click(screen.getByRole('button',{name:'Valider',exact:true}));await settle();
+  expect(screen.queryByRole('heading',{name:'Bravo !'})).not.toBeNull();
+  const saved=JSON.parse(localStorage.getItem('vocab_user_stats_v2')||'{}');
+  expect(saved.routineCompletedDate).toBe('2026-11-26');expect(saved.totalXp).toBe(15);
+  cleanup();render(<App/>);
+  expect(screen.queryByText('Objectif du jour accompli')).not.toBeNull();
+  expect(JSON.parse(localStorage.getItem('vocab_user_stats_v2')!).totalXp).toBe(15);
+});
+
+it.each([2,3])('retains a failed N1 pass %i after the other passes and a next-day reload',async(failedPass)=>{
+  seed();const p=JSON.parse(localStorage.getItem('vocab_srs_progress_v2')!);delete p.Exulter;
+  localStorage.setItem('vocab_srs_progress_v2',JSON.stringify(p));render(<App/>);
+  fireEvent.click(screen.getByRole('button',{name:'Lancer ma routine courte'}));
+  fireEvent.click(screen.getByRole('button',{name:"J'ai mémorisé ce mot"}));
+  for(const pass of [2,3]){
+    const correct=pass===2?words.find(w=>w.word==='Exulter')!.definition_courte:'Exulter';
+    const wrong=words.find(w=>w.word!=='Exulter'&&screen.queryByRole('button',{name:pass===2?w.definition_courte:w.word,exact:true}));
+    fireEvent.click(screen.getByRole('button',{name:pass===failedPass?(pass===2?wrong!.definition_courte:wrong!.word):correct,exact:true}));
+    await settle();
+    if(pass===failedPass){fireEvent.click(screen.getByRole('button',{name:'Continuer la séance',exact:true}));await settle();}
+  }
+  const saved=JSON.parse(localStorage.getItem('vocab_srs_progress_v2')!);
+  expect(saved.Exulter.level).toBe(1);expect(saved.Exulter.step).toBe(failedPass-1);
+  expect(saved.Exulter.nextReviewDate).toBe('2026-11-27');
+  cleanup();vi.setSystemTime(new Date('2026-11-27T12:00:00Z'));render(<App/>);
+  fireEvent.click(screen.getByRole('button',{name:'Lancer ma routine courte'}));
+  expect(screen.queryByRole('button',{name:"J'ai mémorisé ce mot"})).toBeNull();
+  expect(screen.queryByText(failedPass===2?'Ancrage • Passe 2/3 (Définition)':'Validation • Passe 3/3 (Contexte)')).not.toBeNull();
+});

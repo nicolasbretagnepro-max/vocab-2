@@ -89,6 +89,12 @@ describe('short daily planning', () => {
     expect(updateWordProgressOnAnswer(p,fresh[0].word,false,{...item,exerciseType:'qcm-word-to-def'},0,'2026-11-27').introducedOn).toBe(day);
   });
 
+  it('does not subtract an occupied WIP slot a second time when resuming introductions',()=>{
+    const p=Object.fromEntries(words.slice(0,16).map(w=>[w.word,progress(w,{nextReviewDate:'2027-01-01'})]));
+    p[fresh[0].word]=progress(fresh[0],{level:1,step:1,introducedOn:day,nextReviewDate:day});
+    expect(buildDailyRoutineQueue([...words.slice(0,16),...fresh],p,2,day).newWordsCount).toBe(1);
+  });
+
   it('substitutes paires and duel only with canonical due targets and known supports', () => {
     const pool=words.slice(0,8),p=Object.fromEntries(pool.map(w=>[w.word,progress(w,{step:0})]));
     const games=new Set<string>();

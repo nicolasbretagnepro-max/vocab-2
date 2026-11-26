@@ -67,7 +67,7 @@ const LEITNER_BOXES: {
   {
     level: 2,
     title: 'Boîte 2 • Consolidation',
-    subtitle: 'QCM Inversé + Paires (J+1) & Contexte 2 (J+2)',
+    subtitle: 'QCM inversé ou jeu (J+1), contexte 2 (J+2)',
     intervalBadge: 'J+1 ➔ J+2',
     accentClass: 'border-indigo-400/50 bg-indigo-50/50 dark:bg-indigo-500/10',
     badgeClass:

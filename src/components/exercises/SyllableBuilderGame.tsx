@@ -11,11 +11,13 @@ import {
 interface SyllableBuilderGameProps {
   word: WordEntry;
   onAnswer: (isCorrect: boolean) => void;
+  onEvaluated?: (isCorrect: boolean) => void;
 }
 
 export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
   word,
   onAnswer,
+  onEvaluated,
 }) => {
   const parsed = useMemo(
     () => parseCloze(word.example_1, word.example_cloze_1, word.word),
@@ -62,6 +64,7 @@ export const SyllableBuilderGame: React.FC<SyllableBuilderGameProps> = ({
       normalizeText(assembledText) === normalizeText(targetString) ||
       normalizeText(assembledText) === normalizeText(word.word);
     setIsCorrectState(correct);
+    onEvaluated?.(correct);
 
     setTimeout(() => {
       onAnswer(correct);

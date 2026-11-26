@@ -20,8 +20,8 @@ it('keeps a stable workload through 90 days of real SRS progression, absence and
         // A failed discovery pass can schedule tomorrow while later passes of that same
         // learning cycle are still planned today. Eligibility is checked at planning time.
         expect(futureAtPlanning.has(target.wordEntry.word)).toBe(false);
-        const ok=(day+target.wordEntry.word.length)%11!==0;
-        progress[target.wordEntry.word]=updateWordProgressOnAnswer(p,target.wordEntry.word,ok,target,0,today);
+        const ok=target.exerciseType==='discovery'||(day+target.wordEntry.word.length+(target.passIndex||0))%11!==0;
+        progress[target.wordEntry.word]=updateWordProgressOnAnswer(p,target.wordEntry.word,ok,target,0,today,{preserveLearningSteps:true});
       }
     }
   }

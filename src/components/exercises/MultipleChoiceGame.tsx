@@ -17,6 +17,7 @@ interface MultipleChoiceGameProps {
   allWords: WordEntry[];
   mode: QcmMode;
   onAnswer: (isCorrect: boolean) => void;
+  onEvaluated?: (isCorrect: boolean) => void;
   badgeLabel?: string;
   pauseOnError?: boolean;
   onErrorDetected?: () => void;
@@ -27,6 +28,7 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
   allWords,
   mode,
   onAnswer,
+  onEvaluated,
   badgeLabel,
   pauseOnError = false,
   onErrorDetected,
@@ -53,6 +55,7 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     setSelectedIndex(idx);
     setLocked(true);
     const isCorrect = options[idx].isCorrect;
+    onEvaluated?.(isCorrect);
 
     if (!isCorrect && pauseOnError) {
       onErrorDetected?.();
