@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import rawDictionary from './data/words.json';
 import {
   AppSaveData,
   ArcadeHighScores,
   SessionQueueItem,
+  ShortRoutinePlan,
   UserSettings,
   UserStats,
   WordEntry,
@@ -16,6 +17,7 @@ import {
   buildFreeReviewQueue,
   buildLeechTrainingQueue,
   createInitialProgress,
+  getIsoDateString,
 } from './services/srsEngine';
 import {
   loadCustomWords,
@@ -51,10 +53,22 @@ export const App: React.FC = () => {
 
   // Active Learning Session State
   const [activeSession, setActiveSession] = useState<{
+    id: number;
     title: string;
     queue: SessionQueueItem[];
     isDailyRoutine: boolean;
+    shortRoutine?: ShortRoutinePlan;
   } | null>(null);
+  const sessionSerial=useRef(0);
+  const observedDay=useRef(getIsoDateString());
+  const launchSession=(session:Omit<NonNullable<typeof activeSession>,'id'>)=>{
+    const next={...session,id:++sessionSerial.current};setActiveSession(next);
+  };
+  useEffect(()=>{
+    const refresh=()=>{if(document.hidden)return;const day=getIsoDateString();if(day!==observedDay.current){observedDay.current=day;setStats(loadStats());}};
+    const timer=setInterval(refresh,60000);document.addEventListener('visibilitychange',refresh);
+    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+  },[]);
 
   // Word Detail Modal State
   const [selectedModalWord, setSelectedModalWord] = useState<WordEntry | null>(
@@ -127,32 +141,29 @@ export const App: React.FC = () => {
   };
 
   const handleStartDailyRoutine = () => {
-    const { queue } = buildDailyRoutineQueue(
+    const plan = buildDailyRoutineQueue(
       allWords,
       progressMap,
       settings.dailyNewWordsQuota
     );
-    if (queue.length === 0) {
-      // Fallback to bonus new words if nothing due and WIP full
-      const fallback = buildFreeReviewQueue(allWords, progressMap, 10);
-      setActiveSession({
-        title: 'Routine du Jour',
-        queue: fallback,
-        isDailyRoutine: true,
-      });
-      return;
-    }
-    setActiveSession({
-      title: 'Routine du Jour',
-      queue,
+    launchSession({
+      title: 'Routine courte',
+      queue:plan.queue,
       isDailyRoutine: true,
+      shortRoutine:plan,
     });
+  };
+
+  const handleStartRoutineExtra=()=>{
+    const plan=buildDailyRoutineQueue(allWords,progressMap,settings.dailyNewWordsQuota,undefined,{allowNew:false});
+    if(!plan.queue.length)return;
+    launchSession({title:'Révisions facultatives',queue:plan.queue,isDailyRoutine:false,shortRoutine:plan});
   };
 
   const handleStartBonusNewWords = () => {
     const queue = buildBonusNewWordsQueue(allWords, progressMap, 3);
     if (queue.length === 0) return;
-    setActiveSession({
+    launchSession({
       title: 'Session Bonus (+3 mots)',
       queue,
       isDailyRoutine: false,
@@ -161,7 +172,7 @@ export const App: React.FC = () => {
 
   const handleStartFreeReview = () => {
     const queue = buildFreeReviewQueue(allWords, progressMap, 10);
-    setActiveSession({
+    launchSession({
       title: 'Révision libre (10 questions)',
       queue,
       isDailyRoutine: false,
@@ -171,7 +182,7 @@ export const App: React.FC = () => {
   const handleStartFlashcardRecall = () => {
     const queue = buildFlashcardRecallQueue(allWords, progressMap, 10);
     if (queue.length === 0) return;
-    setActiveSession({
+    launchSession({
       title: 'Rappel Éclair (10 cartes)',
       queue,
       isDailyRoutine: false,
@@ -181,18 +192,17 @@ export const App: React.FC = () => {
   const handleStartLeechTraining = () => {
     const queue = buildLeechTrainingQueue(allWords, progressMap);
     if (queue.length === 0) return;
-    setActiveSession({
+    launchSession({
       title: 'Entraînement • Mots Rebelles',
       queue,
       isDailyRoutine: false,
     });
   };
 
-  const handleFinishSession = (xpEarned: number, reviewsCount = 1) => {
+  const handleFinishSession = (xpEarned: number, reviewsCount = 0, completed = true) => {
     const isRoutine = activeSession?.isDailyRoutine ?? false;
-    setStats((prev) =>
-      recordActivityAndXp(prev, xpEarned, isRoutine, Math.max(1, reviewsCount))
-    );
+    if(!activeSession?.shortRoutine||reviewsCount>0)setStats((prev) =>
+      recordActivityAndXp(prev, xpEarned, isRoutine&&completed&&reviewsCount>0, Math.max(1, reviewsCount)));
     setActiveSession(null);
   };
 
@@ -247,6 +257,7 @@ export const App: React.FC = () => {
     <div className="min-h-[100dvh] bg-[#F2F2F7] dark:bg-[#000000] text-slate-900 dark:text-slate-100">
       {activeSession ? (
         <SessionRunner
+          key={activeSession.id}
           title={activeSession.title}
           initialQueue={activeSession.queue}
           allWords={allWords}
@@ -255,6 +266,8 @@ export const App: React.FC = () => {
           onToggleFavorite={handleToggleFavorite}
           onFinishSession={handleFinishSession}
           onCancel={() => setActiveSession(null)}
+          shortRoutine={activeSession.shortRoutine}
+          onContinueSession={activeSession.shortRoutine&&buildDailyRoutineQueue(allWords,progressMap,settings.dailyNewWordsQuota,undefined,{allowNew:false}).queue.length?((xp,count)=>{handleFinishSession(xp,count,true);handleStartRoutineExtra();}):undefined}
         />
       ) : (
         <>
@@ -267,6 +280,7 @@ export const App: React.FC = () => {
                 dailyQuota={settings.dailyNewWordsQuota}
                 dailyXpGoal={settings.dailyXpGoal}
                 onStartDailyRoutine={handleStartDailyRoutine}
+                onStartRoutineExtra={handleStartRoutineExtra}
                 onStartBonusNewWords={handleStartBonusNewWords}
                 onStartFreeReview={handleStartFreeReview}
                 onStartFlashcardRecall={handleStartFlashcardRecall}

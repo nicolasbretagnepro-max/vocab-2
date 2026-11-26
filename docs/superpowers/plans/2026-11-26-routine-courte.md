@@ -32,9 +32,9 @@ Files : créer `src/services/routineBudget.ts`, modifier `srsEngine.ts`, `types/
 
 Interfaces : `exerciseCost(item)`, `sortDueWords(words,progress)`, `buildDailyRoutineQueue(words,progress,quota,today?,options?)` retourne queue, comptes sélectionnés/différés, unités et réserve. `SessionQueueItem.reviewTargets` relie les jeux aux révisions remplacées ; champs additionnels seulement.
 
-- [ ] RED : 100 mots dus ne dépassent pas 12 unités ; futur exclu ; quotas 2/1/0 ; cycles complets et réglages anciens ; GREEN sélection bornée.
-- [ ] RED : 780 mots avec échecs permanents sont tous sélectionnés au fil des jours ; GREEN voies de rotation et dates réelles conservées.
-- [ ] Vérifier jeux remplaçant des révisions adaptées, coût 4/2 et support connu ; suite complète ; commit.
+- [x] RED : 100 mots dus ne dépassent pas 12 unités ; futur exclu ; quotas 2/1/0 ; cycles complets et réglages anciens ; GREEN sélection bornée.
+- [x] RED : 780 mots avec échecs permanents sont tous sélectionnés au fil des jours ; GREEN voies de rotation et dates réelles conservées.
+- [x] Vérifier jeux remplaçant des révisions adaptées, coût 4/2 et support connu ; suite complète ; commit.
 
 ## Lot 2 — Exécution bornée
 
@@ -42,16 +42,16 @@ Files : `SessionRunner.tsx`, `CorrectionSheet.tsx`, tests SessionRunner.
 
 Interfaces : prop facultative `shortRoutine` contenant budget/réserve ; résultat de fin = XP et nombre de mots réellement évalués ; callback facultatif de révisions supplémentaires. Les autres sessions restent compatibles.
 
-- [ ] RED : deux reprises maximum, aucune répétition de reprise, compteur de budget fixe ; GREEN réserve commune.
-- [ ] RED : paires notées mot par mot, support de duel non noté et absence de fausse promotion ; GREEN notation via descripteurs remplacés.
-- [ ] RED : pause après 300000 ms actifs, pas de question inventée, bilan et récompense uniques ; GREEN fin volontaire et visibilité.
-- [ ] Suite complète et compilation ; commit.
+- [x] RED : deux reprises maximum, aucune répétition de reprise, compteur de budget fixe ; GREEN réserve commune.
+- [x] RED : paires notées mot par mot, support de duel non noté et absence de fausse promotion ; GREEN notation via descripteurs remplacés.
+- [x] RED : pause après 300000 ms actifs, pas de question inventée, bilan et récompense uniques ; GREEN fin volontaire et visibilité.
+- [x] Suite complète et compilation ; commit.
 
 ## Lot 3 — Intégration, simulations et publication
 
 Files : `App.tsx`, `HomeTab.tsx`, package version, tests App et simulations, documentation livraison.
 
-- [ ] RED : l'accueil annonce la file bornée, ne remplit pas avec des mots futurs ; journée accomplie malgré mots différés ; bonus sans nouveautés, nouvelle instance et XP uniques ; GREEN intégration.
-- [ ] Simuler semaines d'usage/retard, vérifier dates et couverture sans effacement ; lancer tests et build.
+- [x] RED : l'accueil annonce la file bornée, ne remplit pas avec des mots futurs ; journée accomplie malgré mots différés ; bonus sans nouveautés, nouvelle instance et XP uniques ; GREEN intégration.
+- [x] Simuler semaines d'usage/retard, vérifier dates et couverture sans effacement ; lancer tests et build.
 - [ ] Contrôler navigateur à 393px et 320px, faire une revue indépendante puis corriger chaque défaut important RED/GREEN.
 - [ ] Fusionner et pousser selon l'autorisation explicite ; vérifier workflow Pages, fichiers publics et numéro de version ; livrer avec limites honnêtes.

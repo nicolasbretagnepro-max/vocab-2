@@ -40,6 +40,7 @@ interface SessionRunnerProps {
   onFinishSession: (xpEarned: number, reviewsCount: number, completed?: boolean) => void;
   onCancel: () => void;
   shortRoutine?: { maxUnits: number; retryUnits: number };
+  onContinueSession?: (xpEarned:number,reviewsCount:number)=>void;
 }
 
 export const SessionRunner: React.FC<SessionRunnerProps> = ({
@@ -52,6 +53,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
   onFinishSession,
   onCancel,
   shortRoutine,
+  onContinueSession,
 }) => {
   const [queue, setQueue] = useState<SessionQueueItem[]>(initialQueue);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -129,9 +131,10 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
     totals.current.xp+=xp;if(ok)totals.current.correct++;else totals.current.wrong++;
     setXpEarned(totals.current.xp);setCorrectCount(totals.current.correct);setMistakeCount(totals.current.wrong);
   };
-  const finish=(completed:boolean)=>{
+  const finish=(completed:boolean,continuing=false)=>{
     if(!mounted.current||finishCommitted.current)return;finishCommitted.current=true;
-    if(shortRoutine)onFinishSession(totals.current.xp,totals.current.correct+totals.current.wrong,completed);
+    if(continuing&&onContinueSession)onContinueSession(totals.current.xp,totals.current.correct+totals.current.wrong);
+    else if(shortRoutine)onFinishSession(totals.current.xp,totals.current.correct+totals.current.wrong,completed);
     else onFinishSession(totals.current.xp,totals.current.correct);
   };
   const addShortRetry=(target:SessionQueueItem|ReviewTarget)=>{
@@ -303,6 +306,7 @@ export const SessionRunner: React.FC<SessionRunnerProps> = ({
             <span>Retour à l'accueil</span>
             <ArrowRight className="w-5 h-5" />
           </button>
+          {shortRoutine&&onContinueSession&&<button type="button" className="w-full py-3 rounded-2xl border border-indigo-300 text-indigo-700 dark:text-indigo-300" onClick={()=>finish(true,true)}>Continuer quelques minutes</button>}
         </div>
       </motion.div>
     );

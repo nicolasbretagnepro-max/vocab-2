@@ -219,7 +219,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <Sliders className="w-4 h-4 text-indigo-500" />
             <span>Rythme quotidien (nouveaux mots / jour)</span>
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5">
             {([1, 2] as DailyQuotaOption[]).map((q) => {
               const active = settings.dailyNewWordsQuota === q;
               return (
@@ -235,7 +235,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       : 'border-slate-200/70 dark:border-white/10 bg-slate-50 dark:bg-[#2C2C2E] text-slate-600 dark:text-slate-300'
                   }`}
                 >
-                  {q} mots / jour
+                  {q} mot{q>1?'s':''} / jour
                 </button>
               );
             })}

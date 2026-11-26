@@ -23,7 +23,7 @@ import {
   WordProgress,
 } from '../../types/vocab';
 import {
-  calculateDailyNewWordsAllowance,
+  buildDailyRoutineQueue,
   getDueWords,
   getIsoDateString,
   getLeechWords,
@@ -40,6 +40,7 @@ interface HomeTabProps {
   dailyQuota: DailyQuotaOption;
   dailyXpGoal: number;
   onStartDailyRoutine: () => void;
+  onStartRoutineExtra: () => void;
   onStartBonusNewWords: () => void;
   onStartFreeReview: () => void;
   onStartFlashcardRecall: () => void;
@@ -108,6 +109,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   dailyQuota,
   dailyXpGoal,
   onStartDailyRoutine,
+  onStartRoutineExtra,
   onStartBonusNewWords,
   onStartFreeReview,
   onStartFlashcardRecall,
@@ -129,19 +131,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   );
 
   const wipCount = useMemo(() => getWipCount(progressMap), [progressMap]);
-  const newWordsTodayAllowance = useMemo(
-    () =>
-      calculateDailyNewWordsAllowance(
-        dueWords.length,
-        wipCount,
-        dailyQuota
-      ),
-    [dueWords.length, wipCount, dailyQuota]
-  );
+  const routinePlan=useMemo(()=>buildDailyRoutineQueue(allWords,progressMap,dailyQuota,today),[allWords,progressMap,dailyQuota,today]);
+  const newWordsTodayAllowance=routinePlan.newWordsCount;
 
   const routineAlreadyDoneToday =
-    stats.routineCompletedDate === today &&
-    dueWords.length === 0;
+    stats.routineCompletedDate === today;
 
   const boxWordsMap = useMemo(() => {
     const map: Record<LeitnerLevel, WordEntry[]> = {
@@ -198,7 +192,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-slate-600 dark:text-slate-300">
-              Objectif XP quotidien
+              Repère XP (facultatif)
             </span>
             <span className="text-indigo-600 dark:text-indigo-400">
               {stats.dailyXp} / {dailyXpGoal} XP ({xpPercent}%)
@@ -261,7 +255,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               Spaced Repetition & Active Recall
             </span>
             <h2 className="font-sans text-2xl sm:text-3xl font-bold pt-1 tracking-tight">
-              Routine du Jour (3-4 min)
+              Routine du Jour · environ 5 min
             </h2>
           </div>
         </div>
@@ -275,8 +269,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             <>
               Séance calibrée :{' '}
               <strong className="text-white font-semibold">
-                {dueWords.length} révision{dueWords.length > 1 ? 's' : ''} due
-                {dueWords.length > 1 ? 's' : ''}
+                {routinePlan.reviewWordsCount} mot{routinePlan.reviewWordsCount>1?'s':''} à réviser dans ce lot
               </strong>{' '}
               et{' '}
               <strong className="text-white font-semibold">
@@ -284,19 +277,17 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 {newWordsTodayAllowance > 1 ? 'x' : ''} mot
                 {newWordsTodayAllowance > 1 ? 's' : ''}
               </strong>{' '}
-              (en 3 passes + Duel de nuances).
+              · {routinePlan.plannedUnits} étapes prévues, jusqu’à 14 avec les reprises. Les jeux sont compris dans ce budget.
             </>
           )}
         </p>
 
         {/* Anti-Avalanche notice if high review load */}
-        {dueWords.length >= 8 && (
+        {routinePlan.deferredCount > 0 && (
           <div className="p-3 rounded-2xl bg-black/20 border border-white/15 flex items-center gap-2.5 text-xs text-indigo-100">
             <ShieldAlert className="w-4 h-4 text-amber-300 shrink-0" />
             <span>
-              {dueWords.length >= 15
-                ? 'Bouclier Anti-Avalanche actif : 100 % focus sur vos révisions aujourd’hui (0 nouveau mot).'
-                : 'Régulation Anti-Avalanche : quota ajusté à 3 nouveaux mots pour consolider vos acquis.'}
+              {routinePlan.deferredCount} autres mots dus seront repris à tour de rôle. {newWordsTodayAllowance===0?'Les nouveautés font une pause pour garder une séance courte.':''}
             </span>
           </div>
         )}
@@ -305,17 +296,20 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           <button
             type="button"
             onClick={onStartDailyRoutine}
+            disabled={!routinePlan.queue.length}
             className="w-full py-4 px-6 rounded-2xl bg-white text-indigo-900 hover:bg-indigo-50 active:scale-[0.99] font-bold text-base shadow-lg flex items-center justify-center gap-2.5 transition-all"
           >
             <Play className="w-5 h-5 fill-indigo-900" />
-            <span>Lancer la Routine du Jour (3-4 min)</span>
+            <span>{routinePlan.queue.length?'Lancer ma routine courte':'Révisions à jour'}</span>
           </button>
         ) : (
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-300 bg-white/10 px-4 py-3 rounded-2xl">
             <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <span>Routine du jour complétée avec succès !</span>
+            <span>Objectif du jour accompli</span>
           </div>
         )}
+
+        {routineAlreadyDoneToday&&dueWords.length>0&&<button type="button" className="w-full py-3 rounded-2xl bg-white/15 font-semibold" onClick={onStartRoutineExtra}>Continuer quelques minutes</button>}
 
         {/* Secondary Buttons: Bonus +3 new words, Rappel Éclair & Free review */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
