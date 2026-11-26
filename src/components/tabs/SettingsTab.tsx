@@ -220,7 +220,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <span>Rythme quotidien (nouveaux mots / jour)</span>
           </div>
           <div className="grid grid-cols-3 gap-2.5">
-            {([3, 5, 7] as DailyQuotaOption[]).map((q) => {
+            {([1, 2] as DailyQuotaOption[]).map((q) => {
               const active = settings.dailyNewWordsQuota === q;
               return (
                 <button

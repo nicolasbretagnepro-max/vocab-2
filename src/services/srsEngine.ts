@@ -4,11 +4,13 @@ import {
   FlashcardConfidence,
   LeitnerLevel,
   SessionQueueItem,
+  ShortRoutinePlan,
   WordEntry,
   WordProgress,
 } from '../types/vocab';
 import { stripAccents } from '../utils/clozeParser';
 import { findDuelOpponent } from '../utils/paronymEngine';
+import { exerciseCost, ROUTINE_MAIN_UNITS, ROUTINE_RETRY_UNITS, ReviewJob, selectReviewJobs, sortDueWords, validDay } from './routineBudget';
 
 export const WIP_LIMIT_LEVEL_1_2 = 18;
 export const LEECH_CONSECUTIVE_ERRORS_THRESHOLD = 3;
@@ -100,7 +102,7 @@ export function isWordDueToday(
   today = getIsoDateString(0)
 ): boolean {
   if (!progress || progress.level === 0) return false;
-  if (!progress.nextReviewDate) return true;
+  if (!validDay(progress.nextReviewDate)) return true;
   return progress.nextReviewDate <= today;
 }
 
@@ -227,155 +229,61 @@ export function getExerciseTypeForProgress(progress: WordProgress): ExerciseType
  * - Lot 4: Includes a Paronym / Nuance Duel at the end of the session on one of the session words.
  */
 export function buildDailyRoutineQueue(
-  allWords: WordEntry[],
-  progressMap: Record<string, WordProgress>,
-  configuredQuota: DailyQuotaOption,
-  today = getIsoDateString(0)
-): {
-  queue: SessionQueueItem[];
-  newWordsCount: number;
-  reviewWordsCount: number;
-} {
-  const dueWords = getDueWords(allWords, progressMap, today);
-  const dueLevel1Words = dueWords.filter((w) => progressMap[w.word]?.level === 1);
-  const dueHigherWords = dueWords.filter((w) => (progressMap[w.word]?.level || 0) >= 2);
-
-  const wipCount = getWipCount(progressMap);
-  const newAllowance = calculateDailyNewWordsAllowance(
-    dueWords.length,
-    wipCount,
-    configuredQuota
-  );
-
-  const newWords = selectNewWordsAntiInterference(
-    allWords,
-    progressMap,
-    newAllowance,
-    dueWords
-  );
-
-  const threePassWords = [...dueLevel1Words, ...newWords];
-
-  const reviewItems: SessionQueueItem[] = dueHigherWords.map((w, idx) => {
-    const p = progressMap[w.word];
-    return {
-      id: `rev-${idx}-${w.word}`,
-      wordEntry: w,
-      exerciseType: getExerciseTypeForProgress(p),
-      targetLevel: p.level,
-      targetStep: p.step,
-    };
-  });
-
-  const mainTimeline: (SessionQueueItem | null)[] = [];
-
-  const placeAtOrAfter = (startIndex: number, item: SessionQueueItem) => {
-    let idx = Math.max(0, startIndex);
-    while (mainTimeline[idx] !== undefined && mainTimeline[idx] !== null) {
-      idx++;
-    }
-    mainTimeline[idx] = item;
-    return idx;
+  allWords: WordEntry[], progressMap: Record<string, WordProgress>, configuredQuota: DailyQuotaOption,
+  today = getIsoDateString(0), options: { allowNew?: boolean } = {}
+): ShortRoutinePlan {
+  const words=[...new Map(allWords.filter(w=>w&&typeof w.word==='string'&&w.word.trim()&&w.definition_courte).map(w=>[w.word,w])).values()];
+  const due=sortDueWords(getDueWords(words,progressMap,today),progressMap);
+  const cycle=(word:WordEntry,isNew=false):SessionQueueItem[]=>{
+    const step=isNew?0:Math.max(0,Math.min(2,progressMap[word.word]?.step||0));
+    return ([1,2,3] as const).filter(pass=>pass>step).map(pass=>({id:`daily-${today}-${word.word}-p${pass}`,wordEntry:word,
+      exerciseType:pass===1?'discovery':pass===2?'qcm-word-to-def':'qcm-cloze-1',targetLevel:1,targetStep:pass-1,passIndex:pass}));
   };
-
-  let cursor = 0;
-  let reviewCursor = 0;
-
-  for (let i = 0; i < threePassWords.length; i++) {
-    const word = threePassWords[i];
-    const pass1Index = placeAtOrAfter(cursor, {
-      id: `l1-p1-${i}-${word.word}`,
-      wordEntry: word,
-      exerciseType: 'discovery',
-      targetLevel: 1,
-      targetStep: 0,
-      passIndex: 1,
-    });
-    cursor = pass1Index + 1;
-
-    const offset = 2 + (i % 2);
-    placeAtOrAfter(pass1Index + offset, {
-      id: `l1-p2-${i}-${word.word}`,
-      wordEntry: word,
-      exerciseType: 'qcm-word-to-def',
-      targetLevel: 1,
-      targetStep: 1,
-      passIndex: 2,
-    });
-
-    if (reviewCursor < reviewItems.length) {
-      placeAtOrAfter(cursor, reviewItems[reviewCursor++]);
-    }
-  }
-
-  while (reviewCursor < reviewItems.length) {
-    placeAtOrAfter(cursor, reviewItems[reviewCursor++]);
-  }
-
-  const compactedMain: SessionQueueItem[] = mainTimeline.filter(
-    (item): item is SessionQueueItem => item !== null && item !== undefined
-  );
-
-  const pass3Items: SessionQueueItem[] = threePassWords.map((word, i) => ({
-    id: `l1-p3-${i}-${word.word}`,
-    wordEntry: word,
-    exerciseType: 'qcm-cloze-1',
-    targetLevel: 1,
-    targetStep: 2,
-    passIndex: 3,
-  }));
-
-  const finalQueue: SessionQueueItem[] = [...compactedMain, ...pass3Items];
-
-  const level2Step0Words = dueHigherWords.filter((w) => {
-    const p = progressMap[w.word];
-    return p && p.level === 2 && p.step === 0;
+  let jobs: ReviewJob[]=due.map(word=>{
+    const p=progressMap[word.word];
+    return {word,difficult:isWordLeech(p)||(p.consecutiveErrors||0)>0,items:p.level===1?cycle(word):[
+      {id:`daily-${today}-${word.word}`,wordEntry:word,exerciseType:getExerciseTypeForProgress(p),targetLevel:p.level,targetStep:p.step}]};
   });
-
-  if (level2Step0Words.length > 0 || threePassWords.length >= 4) {
-    const pairPool: WordEntry[] = [...level2Step0Words];
-    const extras = [...threePassWords, ...dueHigherWords, ...allWords];
-    for (const candidate of extras) {
-      if (pairPool.length >= 4) break;
-      if (!pairPool.some((p) => p.word === candidate.word)) {
-        pairPool.push(candidate);
-      }
-    }
-
-    if (pairPool.length === 4) {
-      finalQueue.push({
-        id: `pairs-end-${Date.now()}`,
-        wordEntry: pairPool[0],
-        exerciseType: 'pair-matching',
-        targetLevel: 2,
-        targetStep: 0,
-        pairWords: pairPool.slice(0, 4),
-      });
-    }
+  const dueUnits=jobs.reduce((n,j)=>n+j.items.reduce((sum,q)=>sum+exerciseCost(q),0),0);
+  const introduced=words.filter(w=>progressMap[w.word]?.introducedOn===today).length;
+  const configured=configuredQuota===1?1:2;
+  const quota=options.allowNew===false?0:Math.max(0,Math.min(configured,dueUnits>=10?0:dueUnits>=7?1:2,18-getWipCount(progressMap))-introduced);
+  // Stable per-day order: reopening the preview does not reshuffle the newcomer pool.
+  const hash=(word:string)=>[...today+word].reduce((n,c)=>(Math.imul(n,31)+c.charCodeAt(0))>>>0,0);
+  const prefixes=new Set(due.map(w=>getThreeLetterPrefix(w.word)));
+  const newcomers:WordEntry[]=[];
+  for(const word of [...words].filter(w=>!progressMap[w.word]||progressMap[w.word].level===0).sort((a,b)=>hash(a.word)-hash(b.word)||a.word.localeCompare(b.word))){
+    if(newcomers.length>=quota)break;
+    const prefix=getThreeLetterPrefix(word.word);if(prefix.length>=3&&prefixes.has(prefix))continue;
+    newcomers.push(word);prefixes.add(prefix);
   }
-
-  // Lot 4: Add a Paronym / Nuance Duel on one of the session's studied words
-  const sessionCandidates = [...dueHigherWords, ...threePassWords];
-  for (const candidate of sessionCandidates) {
-    const match = findDuelOpponent(candidate, allWords);
-    if (match) {
-      finalQueue.push({
-        id: `duel-end-${candidate.word}`,
-        wordEntry: candidate,
-        exerciseType: 'paronym-duel',
-        targetLevel: progressMap[candidate.word]?.level || 2,
-        targetStep: progressMap[candidate.word]?.step || 0,
-        duelOpponent: match.opponent,
-      });
-      break;
+  const rotation=hash('games')%3;
+  const eligible=jobs.filter(j=>j.items.length===1&&j.items[0].targetLevel===2&&j.items[0].targetStep===0);
+  if(rotation===1&&eligible.length>=4){
+    const group:ReviewJob[]=[],definitions=new Set<string>();
+    for(const job of eligible){const def=stripAccents(job.word.definition_courte);if(!definitions.has(def)){group.push(job);definitions.add(def);}if(group.length===4)break;}
+    if(group.length===4){
+      const bundle:ReviewJob={word:group[0].word,difficult:group.some(j=>j.difficult),items:[{...group[0].items[0],id:`pairs-${today}`,
+        exerciseType:'pair-matching',pairWords:group.map(j=>j.word),reviewTargets:group.map(j=>j.items[0])}]};
+      jobs=jobs.flatMap(j=>j===group[0]?[bundle]:group.includes(j)?[]:[j]);
     }
+  }else if(rotation===2&&eligible.length){
+    const job=eligible[0],target=job.items[0];
+    const support=words.filter(w=>(progressMap[w.word]?.level||0)>0&&w.word!==job.word.word&&w.example_1&&w.example_cloze_1&&w.definition_courte!==job.word.definition_courte);
+    const match=findDuelOpponent(job.word,support);
+    if(match)job.items=[{...target,id:`duel-${today}-${job.word.word}`,exerciseType:'paronym-duel',duelOpponent:match.opponent,reviewTargets:[target]}];
   }
-
-  return {
-    queue: finalQueue,
-    newWordsCount: newWords.length,
-    reviewWordsCount: dueWords.length,
-  };
+  const selected=selectReviewJobs(jobs,ROUTINE_MAIN_UNITS-newcomers.length*3);
+  const lanes=[...selected.map(j=>[...j.items]),...newcomers.map(w=>cycle(w,true))];
+  const queue:SessionQueueItem[]=[];
+  // Actual oldest due work first, including when the learner stops early.
+  if(selected.length)queue.push(lanes[0].shift()!);
+  for(let i=selected.length;i<lanes.length;i++)queue.push(lanes[i].shift()!);
+  while(lanes.some(l=>l.length))for(const lane of lanes)if(lane.length)queue.push(lane.shift()!);
+  const reviewWords=new Set(selected.flatMap(j=>j.items.flatMap(q=>(q.reviewTargets||[q]).map(t=>t.wordEntry.word))));
+  return {queue,newWordsCount:newcomers.length,reviewWordsCount:reviewWords.size,dueCount:due.length,
+    deferredCount:due.length-reviewWords.size,plannedUnits:queue.reduce((n,q)=>n+exerciseCost(q),0),
+    maxUnits:ROUTINE_MAIN_UNITS+ROUTINE_RETRY_UNITS,retryUnits:ROUTINE_RETRY_UNITS};
 }
 
 /**
@@ -538,6 +446,7 @@ export function updateWordProgressOnFlashcard(
     ? { ...current }
     : createInitialProgress(word);
 
+  if (base.level === 0 && !base.introducedOn) base.introducedOn = today;
   base.lastReviewedDate = today;
 
   if (confidence === 'forgot') {
@@ -617,6 +526,7 @@ export function updateWordProgressOnAnswer(
     ? { ...current }
     : createInitialProgress(word);
 
+  if (base.level === 0 && !base.introducedOn) base.introducedOn = today;
   base.lastReviewedDate = today;
 
   // Pair matching or Paronym Duel bonus consolidation step

@@ -15,7 +15,7 @@ const STORAGE_KEYS = {
 };
 
 export const DEFAULT_SETTINGS: UserSettings = {
-  dailyNewWordsQuota: 5,
+  dailyNewWordsQuota: 2,
   theme: 'auto',
   dailyXpGoal: 100,
 };
@@ -66,11 +66,7 @@ export function loadSettings(): UserSettings {
     const parsed = JSON.parse(raw);
     return {
       dailyNewWordsQuota:
-        parsed.dailyNewWordsQuota === 3 ||
-        parsed.dailyNewWordsQuota === 5 ||
-        parsed.dailyNewWordsQuota === 7
-          ? parsed.dailyNewWordsQuota
-          : 5,
+        parsed.dailyNewWordsQuota === 1 ? 1 : 2,
       theme:
         parsed.theme === 'light' ||
         parsed.theme === 'dark' ||
@@ -255,6 +251,7 @@ export function decodeBackupString(rawInput: string): AppSaveData {
     settings: {
       ...DEFAULT_SETTINGS,
       ...(parsed.settings || {}),
+      dailyNewWordsQuota: parsed.settings?.dailyNewWordsQuota === 1 ? 1 : 2,
     },
     stats: {
       ...getDefaultStats(),

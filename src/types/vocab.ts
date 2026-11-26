@@ -25,10 +25,11 @@ export interface WordProgress {
   isLeech?: boolean;
   favorite: boolean;
   customMemoryTip?: string;
+  introducedOn?: string; // First actual learning encounter; absent in historical profiles.
 }
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
-export type DailyQuotaOption = 3 | 5 | 7;
+export type DailyQuotaOption = 1 | 2;
 
 export interface UserSettings {
   dailyNewWordsQuota: DailyQuotaOption;
@@ -94,4 +95,17 @@ export interface SessionQueueItem {
   isRetry?: boolean;
   pairWords?: WordEntry[]; // When exerciseType === 'pair-matching'
   duelOpponent?: WordEntry; // When exerciseType === 'paronym-duel'
+  reviewTargets?: ReviewTarget[]; // Canonical reviews replaced by a bounded routine game.
+}
+
+export type ReviewTarget = Pick<SessionQueueItem, 'id' | 'wordEntry' | 'exerciseType' | 'targetLevel' | 'targetStep' | 'passIndex'>;
+export interface ShortRoutinePlan {
+  queue: SessionQueueItem[];
+  newWordsCount: number;
+  reviewWordsCount: number;
+  dueCount: number;
+  deferredCount: number;
+  plannedUnits: number;
+  maxUnits: number;
+  retryUnits: number;
 }
