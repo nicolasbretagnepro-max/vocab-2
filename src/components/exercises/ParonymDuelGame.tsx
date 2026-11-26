@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WordEntry } from '../../types/vocab';
 import { Swords, ArrowLeftRight, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
@@ -9,6 +9,7 @@ interface ParonymDuelGameProps {
   wordB: WordEntry;
   groupLabel?: string;
   onResult: (success: boolean) => void;
+  onEvaluated?: (success: boolean) => void;
 }
 
 export const ParonymDuelGame: React.FC<ParonymDuelGameProps> = ({
@@ -16,12 +17,14 @@ export const ParonymDuelGame: React.FC<ParonymDuelGameProps> = ({
   wordB,
   groupLabel,
   onResult,
+  onEvaluated,
 }) => {
   // Randomize whether Sentence 1 belongs to wordA or wordB
   const [sentencesOrder] = useState<'AB' | 'BA'>(() => (Math.random() > 0.5 ? 'AB' : 'BA'));
   // User's assignment: does wordA go to slot 1 ('AB') or slot 2 ('BA')?
   const [userAssignment, setUserAssignment] = useState<'AB' | 'BA' | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const submittedRef = useRef(false);
 
   const parsedA = useMemo(
     () => parseCloze(wordA.example_1, wordA.example_cloze_1, wordA.word),
@@ -63,8 +66,10 @@ export const ParonymDuelGame: React.FC<ParonymDuelGameProps> = ({
   };
 
   const handleValidate = () => {
-    if (!userAssignment || submitted) return;
+    if (!userAssignment || submittedRef.current) return;
+    submittedRef.current=true;
     setSubmitted(true);
+    onEvaluated?.(isCorrect);
     if (isCorrect) {
       setTimeout(() => {
         onResult(true);

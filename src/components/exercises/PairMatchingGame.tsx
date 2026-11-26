@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Sparkles } from 'lucide-react';
 import { WordEntry } from '../../types/vocab';
@@ -8,12 +8,16 @@ interface PairMatchingGameProps {
   onComplete: (mistakesCount: number) => void;
   onMistakeWord?: (word: WordEntry) => void;
   titleLabel?: string;
+  resolveOnAttempt?: boolean;
+  onResolveWord?: (word: WordEntry, correct: boolean) => void;
 }
 
 export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
   words,
   onComplete,
   onMistakeWord,
+  resolveOnAttempt = false,
+  onResolveWord,
   titleLabel = 'Consolidation • Reliez les 4 paires',
 }) => {
   const pairItems = useMemo(() => words.slice(0, 4), [words]);
@@ -41,8 +45,21 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
   const [matchedWords, setMatchedWords] = useState<Set<string>>(new Set());
   const [wrongPair, setWrongPair] = useState<{ left: string; right: string } | null>(null);
   const [mistakes, setMistakes] = useState(0);
+  const resolved = useRef(new Set<string>());
+  const [incorrectWords,setIncorrectWords] = useState(new Set<string>());
+  const [lastCorrection,setLastCorrection] = useState('');
 
   const checkMatch = (leftWord: string, rightWord: string) => {
+    if(resolveOnAttempt){
+      if(resolved.current.has(leftWord))return;
+      const entry=pairItems.find(w=>w.word===leftWord);if(!entry)return;
+      const correct=leftWord===rightWord;resolved.current.add(leftWord);
+      onResolveWord?.(entry,correct);
+      setMatchedWords(new Set(resolved.current));setSelectedLeft(null);setSelectedRight(null);
+      if(!correct){setMistakes(m=>m+1);setIncorrectWords(prev=>new Set([...prev,leftWord]));setLastCorrection(`« ${entry.word} » signifie : ${entry.definition_courte}`);}
+      if(resolved.current.size===pairItems.length)setTimeout(()=>onComplete(mistakes+(correct?0:1)),550);
+      return;
+    }
     if (leftWord === rightWord) {
       const next = new Set(matchedWords);
       next.add(leftWord);
@@ -114,6 +131,8 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
           Touchez un mot à gauche puis sa définition courte à droite.
         </p>
+        {resolveOnAttempt&&<p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Une tentative par mot, puis la correction. Les difficultés reviendront dans une prochaine révision.</p>}
+        {lastCorrection&&<p role="status" className="mt-3 text-sm font-semibold text-rose-700 dark:text-rose-300">{lastCorrection}</p>}
       </div>
 
       {/* 2-Column Interactive Grid */}
@@ -138,6 +157,7 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
                 'bg-indigo-50 dark:bg-indigo-500/25 border-indigo-600 dark:border-indigo-400 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/25';
             }
 
+            if(resolveOnAttempt && incorrectWords.has(item.word)) cls="bg-rose-50 dark:bg-rose-500/20 border-rose-400 text-rose-800 dark:text-rose-200";
             return (
               <motion.button
                 key={`left-${item.word}`}
@@ -182,6 +202,7 @@ export const PairMatchingGame: React.FC<PairMatchingGameProps> = ({
                 'bg-indigo-50 dark:bg-indigo-500/25 border-indigo-600 dark:border-indigo-400 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/25';
             }
 
+            if(resolveOnAttempt && incorrectWords.has(item.word)) cls="bg-rose-50 dark:bg-rose-500/20 border-rose-400 text-rose-800 dark:text-rose-200";
             return (
               <motion.button
                 key={`right-${item.word}`}

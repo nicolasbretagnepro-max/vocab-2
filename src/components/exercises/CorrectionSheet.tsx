@@ -8,12 +8,14 @@ interface CorrectionSheetProps {
   word: WordEntry;
   customMemoryTip?: string;
   onContinue: () => void;
+  retryMessage?: string;
 }
 
 export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
   word,
   customMemoryTip,
   onContinue,
+  retryMessage = 'Reviendra en fin de séance',
 }) => {
   const ex1 = highlightTargetInExample(
     word.example_1,
@@ -37,7 +39,7 @@ export const CorrectionSheet: React.FC<CorrectionSheetProps> = ({
           </span>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
             <RotateCcw className="w-3.5 h-3.5" />
-            Reviendra en fin de séance
+            {retryMessage}
           </span>
         </div>
 
